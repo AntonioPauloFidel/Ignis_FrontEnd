@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 export interface LoginPayload {
   email: string;
@@ -18,23 +19,27 @@ export interface LoginResponse {
   user: LoginUser;
 }
 
-export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+export async function loginUser(
+  payload: LoginPayload,
+): Promise<LoginResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/auth/login`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     },
-    credentials: 'include',
-    body: JSON.stringify(payload),
-  });
+  );
 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data?.message ?? 'Erro ao fazer login.');
+    throw new Error(
+      data?.message ?? 'Erro ao fazer login.',
+    );
   }
 
   return data as LoginResponse;
 }
-
-export default loginUser;

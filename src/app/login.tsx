@@ -14,7 +14,7 @@ import {
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../constants/colors';
-import { signIn } from '../services/auth';
+import { loginUser } from '../services/auth';
 
 export default function Login() {
   const { width, height } = useWindowDimensions();
@@ -36,33 +36,36 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  async function handleLogin() {
-    setError('');
+ async function handleLogin() {
+  setError('');
 
-    if (!email.trim() || !password) {
-      setError('Preencha seu e-mail e sua senha.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const response = await signIn({
-        email: email.trim(),
-        password,
-      });
-
-      console.log('Login realizado:', response);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Não foi possível fazer login.',
-      );
-    } finally {
-      setLoading(false);
-    }
+  if (!email.trim() || !password) {
+    setError('Preencha seu e-mail e sua senha.');
+    return;
   }
+
+  try {
+    setLoading(true);
+
+    const response = await loginUser({
+      email: email.trim(),
+      password,
+    });
+
+    console.log('LOGIN REALIZADO!');
+    console.log('Usuário:', response.user);
+    console.log('Token:', response.accessToken);
+
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : 'Não foi possível fazer login.',
+    );
+  } finally {
+    setLoading(false);
+  }
+}
 
   return (
     <KeyboardAvoidingView
