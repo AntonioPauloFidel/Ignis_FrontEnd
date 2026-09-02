@@ -1,15 +1,9 @@
-import {
-    loginUser,
-    type LoginPayload,
-    type LoginResponse,
-} from '../api/login';
+export {
+    loginUser
+} from '../api/login/login';
 
-
-
-export async function signIn(
-  payload: LoginPayload,
-): Promise<LoginResponse> {
-  console.log('SIGN IN EXECUTADO');
-
-  return await loginUser(payload);
-}
+export type {
+    LoginPayload,
+    LoginResponse,
+    LoginUser
+} from '../api/login/login';
