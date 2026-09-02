@@ -1,13 +1,14 @@
 import React from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
-  StyleProp,
-  StyleSheet,
-  Text,
-  TextStyle,
-  ViewStyle,
+    ActivityIndicator,
+    Pressable,
+    StyleProp,
+    StyleSheet,
+    Text,
+    TextStyle,
+    ViewStyle,
 } from 'react-native';
+
 import { colors } from '../../constants/colors';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline';
@@ -43,17 +44,22 @@ export function Button({
         styles.button,
         styles[variant],
         pressed && !isInteractionDisabled && styles.pressed,
-        isInteractionDisabled && styles[`${variant}Disabled` as keyof typeof styles],
+        isInteractionDisabled && styles.disabled,
         style,
       ]}
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'outline' ? colors.primary : '#FFFFFF'}
+          color={
+            variant === 'outline'
+              ? colors.primary
+              : '#FFFFFF'
+          }
         />
       ) : (
         <>
           {icon}
+
           <Text
             style={[
               styles.text,
@@ -70,6 +76,7 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
+  // Base
   button: {
     width: '100%',
     height: 52,
@@ -81,49 +88,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
-  // --- Variantes de Fundo ---
+  // Variantes
   primary: {
     backgroundColor: colors.primary,
   },
+
   secondary: {
-    backgroundColor: colors.secondary || '#333333',
+    backgroundColor: colors.darkBlue,
   },
+
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
     borderColor: colors.primary,
   },
 
-  // --- Feedback ao Pressionar ---
+  // Pressionado
   pressed: {
     opacity: 0.75,
   },
 
-  // --- Estados Desabilitados por Variante ---
-  primaryDisabled: {
-    backgroundColor: colors.neutralGray || '#E0E0E0',
-    opacity: 0.6,
-  },
-  secondaryDisabled: {
-    backgroundColor: colors.neutralGray || '#E0E0E0',
-    opacity: 0.6,
-  },
-  outlineDisabled: {
-    borderColor: colors.neutralGray || '#CCCCCC',
+  // Desabilitado
+  disabled: {
     opacity: 0.5,
   },
 
-  // --- Estilos de Texto por Variante ---
+  // Texto
   text: {
     fontSize: 16,
     fontWeight: '600',
   },
+
   primaryText: {
     color: '#FFFFFF',
   },
+
   secondaryText: {
     color: '#FFFFFF',
   },
+
   outlineText: {
     color: colors.primary,
   },
