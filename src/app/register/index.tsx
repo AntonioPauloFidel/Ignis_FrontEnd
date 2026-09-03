@@ -2,15 +2,22 @@ import { useState } from 'react';
 import {
     KeyboardAvoidingView,
     Platform,
+    Pressable,
     ScrollView,
     StyleSheet,
-    useWindowDimensions
+    Text,
+    View,
+    useWindowDimensions,
 } from 'react-native';
 
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { registerUser } from '../../api/register';
+import { Button } from '../../components/Button';
 import { Footer } from '../../components/Footer';
+import { Header } from '../../components/Header';
+import { Input } from '../../components/Input';
 import { colors } from '../../constants/colors';
 
 export default function Register() {
@@ -86,7 +93,126 @@ export default function Register() {
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
-        
+        <View style={styles.main}>
+
+          {/* DECORAÇÃO SUPERIOR */}
+          <View style={styles.topDecoration}>
+            <Ionicons
+              name="flame"
+              size={140 * scale}
+              color={colors.softBlue}
+            />
+          </View>
+
+          {/* LOGO */}
+          <View style={styles.logoContainer}>
+            <Ionicons
+              name="flame"
+              size={58 * scale}
+              color={colors.primary}
+            />
+            <Text style={styles.logo}>IGNIS</Text>
+            <Text style={styles.slogan}>FOCO QUE TRANSFORMA</Text>
+          </View>
+
+          {/* CABEÇALHO */}
+          <Header
+            title="Crie sua conta"
+            subtitle="Preencha seus dados para começar."
+          />
+
+          {/* FORMULÁRIO */}
+          <View style={styles.form}>
+
+            {/* NOME */}
+            <Text style={styles.label}>Nome Completo</Text>
+            <Input
+              value={name}
+              onChangeText={setName}
+              placeholder="Seu nome"
+              autoCapitalize="words"
+            />
+
+            {/* IDADE */}
+            <Text style={styles.label}>Idade</Text>
+            <Input
+              value={age}
+              onChangeText={setAge}
+              placeholder="Ex: 25"
+              keyboardType="numeric"
+            />
+
+            {/* E-MAIL */}
+            <Text style={styles.label}>E-mail</Text>
+            <Input
+              value={email}
+              onChangeText={setEmail}
+              placeholder="seuemail@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            {/* TELEFONE */}
+            <Text style={styles.label}>Telefone</Text>
+            <Input
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="(00) 00000-0000"
+              keyboardType="phone-pad"
+            />
+
+            {/* SENHA */}
+            <View style={styles.passwordLabelContainer}>
+              <Text style={styles.label}>Senha</Text>
+              <Pressable
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={10}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20 * scale}
+                  color="#94A3B8"
+                />
+              </Pressable>
+            </View>
+            <Input
+              value={password}
+              onChangeText={setPassword}
+              placeholder="**********"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+            />
+
+            {/* MENSAGEM DE ERRO */}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+            {/* BOTÃO CADASTRAR */}
+            <Button
+              title="Cadastrar"
+              onPress={handleRegister}
+              loading={loading}
+              icon={
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={25 * scale}
+                  color="#FFFFFF"
+                />
+              }
+              style={{ height: 51 * scale, marginTop: 16 * scale }}
+              textStyle={{ fontSize: 17 * scale, fontWeight: '700' }}
+            />
+
+            {/* NAVEGAÇÃO PARA LOGIN */}
+            <View style={styles.loginContainer}>
+              <Text style={styles.loginText}>Já possui uma conta?</Text>
+              <Pressable onPress={() => router.push('/login')}>
+                <Text style={styles.loginLink}>Fazer login</Text>
+              </Pressable>
+            </View>
+
+          </View>
+        </View>
 
         {/* RODAPÉ */}
         <Footer />
