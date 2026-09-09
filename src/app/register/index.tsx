@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-    useWindowDimensions,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -36,7 +36,9 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,20 +46,36 @@ export default function Register() {
   async function handleRegister() {
     setError('');
 
-    if (!name.trim() || !age.trim() || !email.trim() || !phone.trim() || !password) {
+    // Validação de campos vazios
+    if (
+      !name.trim() ||
+      !age.trim() ||
+      !email.trim() ||
+      !phone.trim() ||
+      !password ||
+      !confirmPassword
+    ) {
       setError('Preencha todos os campos para continuar.');
       return;
     }
 
+    // Validação de Idade
     const numericAge = parseInt(age, 10);
     if (isNaN(numericAge) || numericAge <= 0) {
       setError('Informe uma idade válida.');
       return;
     }
 
+    // Validação de confirmação de senha
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem.');
+      return;
+    }
+
     try {
       setLoading(true);
 
+      // O payload enviado para a API permanece intacto, sem confirmPassword
       const response = await registerUser({
         name: name.trim(),
         age: numericAge,
@@ -70,7 +88,6 @@ export default function Register() {
       console.log('Mensagem:', response.message);
       console.log('Usuário:', response.user);
 
-      // Redireciona para o login após cadastrar com sucesso
       router.push('/login');
 
     } catch (err) {
@@ -181,6 +198,28 @@ export default function Register() {
               onChangeText={setPassword}
               placeholder="**********"
               secureTextEntry={!showPassword}
+              autoCapitalize="none"
+            />
+
+            {/* CONFIRMAR SENHA */}
+            <View style={styles.passwordLabelContainer}>
+              <Text style={styles.label}>Confirmar senha</Text>
+              <Pressable
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                hitSlop={10}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20 * scale}
+                  color="#94A3B8"
+                />
+              </Pressable>
+            </View>
+            <Input
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="**********"
+              secureTextEntry={!showConfirmPassword}
               autoCapitalize="none"
             />
 
