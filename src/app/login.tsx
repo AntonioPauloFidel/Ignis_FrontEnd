@@ -44,6 +44,12 @@ export default function Login() {
     return;
   }
 
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(email.trim())) {
+    setError('Informe um e-mail válido.');
+    return;
+  }
+
   try {
     setLoading(true);
 
