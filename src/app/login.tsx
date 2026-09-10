@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-    useWindowDimensions,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
 } from 'react-native';
 
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import { colors } from '../constants/colors';
 import { loginUser } from '../services/auth';
 
 export default function Login() {
+  const router = useRouter();
   const { width, height } = useWindowDimensions();
 
   /*
@@ -53,14 +55,12 @@ export default function Login() {
   try {
     setLoading(true);
 
-    const response = await loginUser({
+    await loginUser({
       email: email.trim(),
       password,
     });
 
-    console.log('LOGIN REALIZADO!');
-    console.log('Usuário:', response.user);
-    console.log('Token:', response.accessToken);
+    router.replace('/');
 
   } catch (err) {
     setError(
