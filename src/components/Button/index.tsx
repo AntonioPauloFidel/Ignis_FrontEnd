@@ -1,12 +1,12 @@
 import React from 'react';
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleProp,
-    StyleSheet,
-    Text,
-    TextStyle,
-    ViewStyle,
+  ActivityIndicator,
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  Text,
+  TextStyle,
+  ViewStyle,
 } from 'react-native';
 
 import { colors } from '../../constants/colors';
@@ -130,4 +130,4 @@ const styles = StyleSheet.create({
   outlineText: {
     color: colors.primary,
   },
-});
+}); 
