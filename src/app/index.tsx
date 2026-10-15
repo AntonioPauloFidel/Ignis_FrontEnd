@@ -1,33 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
 } from 'react-native';
 import { Circle, Svg } from 'react-native-svg';
 
 import {
-  cancelStudyCycle,
-  completeStudyCycle,
-  getAchievements,
-  getActiveStudyCycle,
-  getCurrentUser,
-  getStudyStats,
-  getUserStats,
-  pauseStudyCycle,
-  resumeStudyCycle,
-  startStudyCycle,
-  type Achievement,
-  type StudyCycle,
-  type StudyStats,
-  type UserProfile,
-  type UserStats,
+    completeStudyCycle,
+    getAchievements,
+    getActiveStudyCycle,
+    getCurrentUser,
+    getStudyStats,
+    getUserStats,
+    pauseStudyCycle,
+    resumeStudyCycle,
+    startStudyCycle,
+    type Achievement,
+    type StudyCycle,
+    type StudyStats,
+    type UserProfile,
+    type UserStats
 } from '../api/home';
 import { Card } from '../components/Card';
 import { NavBar, type TabItem } from '../components/NavBar';
@@ -160,19 +158,8 @@ function ProgressRing({
   );
 }
 
-function InfoBadge({ icon, label, value }: { icon: string; label: string; value: string }) {
-  return (
-    <View style={styles.infoBadge}>
-      <Text style={styles.infoBadgeIcon}>{icon}</Text>
-      <Text style={styles.infoBadgeLabel}>{label}</Text>
-      <Text style={styles.infoBadgeValue}>{value}</Text>
-    </View>
-  );
-}
-
 export default function HomeScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [cycleStats, setCycleStats] = useState<StudyStats | null>(null);
@@ -183,7 +170,6 @@ export default function HomeScreen() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [now, setNow] = useState(Date.now());
 
   const cycleStatus = useMemo(
     () => getCycleStatus(activeCycle, selectedDurationMinutes),
@@ -215,7 +201,7 @@ export default function HomeScreen() {
     return Math.min(1, (total - remaining) / total || 0);
   }, [activeCycle, activeDurationSeconds, cycleStatus, presetDurationSeconds, remainingSeconds]);
 
-  async function loadHome() {
+  const loadHome = useCallback(async () => {
     try {
       setLoading(true);
       setErrorMessage('');
@@ -290,23 +276,15 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
 
   useEffect(() => {
-    void loadHome();
-  }, []);
+    const timeout = setTimeout(() => {
+      void loadHome();
+    }, 0);
 
-  useEffect(() => {
-    if (cycleStatus !== 'running' || !activeCycle) {
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [activeCycle, cycleStatus]);
+    return () => clearTimeout(timeout);
+  }, [loadHome]);
 
   async function handleStartCycle() {
     try {
@@ -374,30 +352,6 @@ export default function HomeScreen() {
       setIsSubmitting(false);
     }
   }
-
-  async function handleCancelCycle() {
-    if (!activeCycle?.id) return;
-
-    try {
-      setIsSubmitting(true);
-      const cancelled = await cancelStudyCycle(activeCycle.id);
-      setActiveCycle(cancelled);
-      setErrorMessage('');
-      await loadHome();
-    } catch (error) {
-      const status = (error as Error & { status?: number })?.status;
-      if (status === 401) {
-        router.replace('/login');
-        return;
-      }
-      setErrorMessage('Não foi possível cancelar o ciclo.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  const focusButtonText =
-    cycleStatus === 'running' ? 'PAUSAR' : cycleStatus === 'paused' ? 'CONTINUAR' : 'INICIAR CICLO';
 
   const navTabs: TabItem[] = [
     {
@@ -641,8 +595,18 @@ export default function HomeScreen() {
             return;
           }
 
+          if (tabId === 'progress') {
+            router.push('/progress' as never);
+            return;
+          }
+
           if (tabId === 'profile') {
             router.push('/login');
+            return;
+          }
+
+          if (tabId === 'home') {
+            router.push('/');
           }
         }}
         style={styles.navBar}

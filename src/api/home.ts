@@ -21,6 +21,13 @@ export interface UserStats {
   totalStudyMinutes?: number;
   todayStudyMinutes?: number;
   todayCycles?: number;
+  completedCycles?: number;
+  user?: {
+    id?: string;
+    name?: string;
+    email?: string;
+  };
+  stats?: Partial<UserStats>;
 }
 
 export interface StudyCycle {
@@ -50,7 +57,51 @@ export interface StudyStats {
   longestStreak?: number;
   totalFocusMinutes?: number;
   totalStudyMinutes?: number;
+  totalIgnisEarned?: number;
+  weekStudyMinutes?: number;
+  averageStudyMinutes?: number;
+  completedCycles?: number;
   [key: string]: unknown;
+}
+
+export type GoalType = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
+export interface Goal {
+  id: number | string;
+  type: GoalType;
+  targetMinutes: number;
+  startDate?: string;
+  endDate?: string;
+  progressMinutes?: number;
+  progressPercent?: number;
+  completed?: boolean;
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
+export interface GoalPayload {
+  type: GoalType;
+  targetMinutes: number;
+}
+
+export interface StudyHistoryPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface StudyHistorySummary {
+  totalStudyMinutes?: number;
+  totalIgnisEarned?: number;
+  averageStudyMinutes?: number;
+  [key: string]: unknown;
+}
+
+export interface StudyHistoryResponse {
+  data: StudyCycle[];
+  pagination: StudyHistoryPagination;
+  summary: StudyHistorySummary;
 }
 
 export interface Achievement {
@@ -106,7 +157,16 @@ export async function getCurrentUser(): Promise<UserProfile> {
 }
 
 export async function getUserStats(): Promise<UserStats> {
-  return requestJson<UserStats>('/users/me/stats');
+  const data = await requestJson<{ user?: UserStats['user']; stats?: Partial<UserStats> } | UserStats>('/users/me/stats');
+
+  if (data && 'stats' in data && data.stats) {
+    return {
+      ...data.stats,
+      user: data.user,
+    } as UserStats;
+  }
+
+  return data as UserStats;
 }
 
 export async function getActiveStudyCycle(): Promise<StudyCycle | null> {
@@ -125,21 +185,105 @@ export async function getStudyStats(): Promise<StudyStats> {
   return requestJson<StudyStats>('/study-cycles/stats');
 }
 
-export async function getStudyHistory(): Promise<StudyCycle[]> {
-  const data = await requestJson<{ items?: StudyCycle[]; cycles?: StudyCycle[]; data?: StudyCycle[] }>(
-    '/study-cycles/history',
+export async function getGoals(): Promise<Goal[]> {
+  const data = await requestJson<{ items?: Goal[]; goals?: Goal[]; data?: Goal[] } | Goal[]>(
+    '/goals',
   );
 
   if (Array.isArray(data)) {
     return data;
   }
 
-  return (
-    data?.items ??
-    data?.cycles ??
-    data?.data ??
-    []
-  );
+  return data?.items ?? data?.goals ?? data?.data ?? [];
+}
+
+export async function createGoal(payload: GoalPayload): Promise<Goal> {
+  return requestJson<Goal>('/goals', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteGoal(goalId: number | string): Promise<void> {
+  await requestJson(`/goals/${goalId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getStudyHistoryPage(params: {
+  page?: number;
+  limit?: number;
+  startDate?: string;
+  endDate?: string;
+} = {}): Promise<StudyHistoryResponse> {
+  const query = new URLSearchParams();
+
+  if (params.page) query.set('page', String(params.page));
+  if (params.limit) query.set('limit', String(params.limit));
+  if (params.startDate) query.set('startDate', params.startDate);
+  if (params.endDate) query.set('endDate', params.endDate);
+
+  const path = `/study-cycles/history${query.toString() ? `?${query.toString()}` : ''}`;
+  const data = await requestJson<
+    | StudyHistoryResponse
+    | { items?: StudyCycle[]; cycles?: StudyCycle[]; data?: StudyCycle[]; pagination?: StudyHistoryPagination; summary?: StudyHistorySummary }
+    | StudyCycle[]
+  >(path);
+
+  if (Array.isArray(data)) {
+    return {
+      data,
+      pagination: {
+        page: 1,
+        limit: data.length,
+        total: data.length,
+        totalPages: data.length > 0 ? 1 : 0,
+      },
+      summary: {
+        totalStudyMinutes: 0,
+        totalIgnisEarned: 0,
+        averageStudyMinutes: 0,
+      },
+    };
+  }
+
+  const objectData =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? (data as {
+          data?: StudyCycle[];
+          items?: StudyCycle[];
+          cycles?: StudyCycle[];
+        })
+      : undefined;
+
+  const historyData =
+    (Array.isArray(objectData?.data) ? objectData.data : undefined) ??
+    (Array.isArray(objectData?.items) ? objectData.items : undefined) ??
+    (Array.isArray(objectData?.cycles) ? objectData.cycles : undefined) ??
+    [];
+
+  return {
+    data: Array.isArray(historyData) ? historyData : [],
+    pagination: data?.pagination ?? {
+      page: 1,
+      limit: 20,
+      total: 0,
+      totalPages: 0,
+    },
+    summary: data?.summary ?? {
+      totalStudyMinutes: 0,
+      totalIgnisEarned: 0,
+      averageStudyMinutes: 0,
+    },
+  };
+}
+
+export async function getStudyHistory(): Promise<StudyCycle[]> {
+  const response = await getStudyHistoryPage();
+  return response.data;
 }
 
 export async function getAchievements(): Promise<Achievement[]> {
