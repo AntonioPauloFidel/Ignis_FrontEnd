@@ -458,48 +458,47 @@ export default function ProgressScreen() {
             ))}
           </View>
 
-          {historyRange.length === 0 ? (
+          {historyRange.length === 0 && (
             <View style={styles.emptyChartContainer}>
               <Text style={styles.emptyChartText}>Sem dados no período de 7 dias.</Text>
             </View>
-          ) : (
-            <View style={styles.chartWrap}>
-              <Svg width="100%" height={160} viewBox="0 0 280 160">
-                {[0, 1, 2, 3].map((line) => (
-                  <Line
-                    key={line}
-                    x1="0"
-                    y1={20 + line * 28}
-                    x2="280"
-                    y2={20 + line * 28}
-                    stroke="#E2E8F0"
-                    strokeWidth="1"
-                  />
-                ))}
-                <Polyline points={chartPoints.join(' ')} fill="none" stroke={colors.primary} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-                {chartSeries.map((item, index) => {
-                  const x = (index / Math.max(chartSeries.length - 1, 1)) * 280;
-                  const y = 120 - (item.value / chartMax) * 90;
-
-                  return (
-                    <Circle
-                      key={`${item.label}-${index}`}
-                      cx={x}
-                      cy={y}
-                      r={4}
-                      fill={colors.primary}
-                    />
-                  );
-                })}
-              </Svg>
-
-              <View style={styles.chartLabels}>
-                {chartSeries.map((item) => (
-                  <Text key={`${item.label}-label`} style={styles.chartLabel}>{item.label}</Text>
-                ))}
-              </View>
-            </View>
           )}
+          <View style={styles.chartWrap}>
+            <Svg width="100%" height={160} viewBox="0 0 280 160">
+              {[0, 1, 2, 3].map((line) => (
+                <Line
+                  key={line}
+                  x1="0"
+                  y1={20 + line * 28}
+                  x2="280"
+                  y2={20 + line * 28}
+                  stroke="#E2E8F0"
+                  strokeWidth="1"
+                />
+              ))}
+              <Polyline points={chartPoints.join(' ')} fill="none" stroke={colors.primary} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+              {chartSeries.map((item, index) => {
+                const x = (index / Math.max(chartSeries.length - 1, 1)) * 280;
+                const y = 120 - (item.value / chartMax) * 90;
+
+                return (
+                  <Circle
+                    key={`${item.label}-${index}`}
+                    cx={x}
+                    cy={y}
+                    r={4}
+                    fill={colors.primary}
+                  />
+                );
+              })}
+            </Svg>
+
+            <View style={styles.chartLabels}>
+              {chartSeries.map((item) => (
+                <Text key={`${item.label}-label`} style={styles.chartLabel}>{item.label}</Text>
+              ))}
+            </View>
+          </View>
         </Card>
 
         <Card style={styles.historyCard}>
