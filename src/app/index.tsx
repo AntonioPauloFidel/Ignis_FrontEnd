@@ -601,7 +601,7 @@ export default function HomeScreen() {
           }
 
           if (tabId === 'profile') {
-            router.push('/login');
+            router.push('/profile' as never);
             return;
           }
 
