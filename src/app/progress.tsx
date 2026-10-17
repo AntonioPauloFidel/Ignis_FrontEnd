@@ -575,7 +575,7 @@ export default function ProgressScreen() {
           }
 
           if (tabId === 'profile') {
-            router.push('/login');
+            router.push('/profile' as never);
             return;
           }
 
