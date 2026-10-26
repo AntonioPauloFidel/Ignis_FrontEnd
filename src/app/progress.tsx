@@ -580,6 +580,7 @@ export default function ProgressScreen() {
           }
 
           if (tabId === 'add') {
+            router.push('/chats' as never);
             return;
           }
         }}

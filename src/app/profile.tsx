@@ -421,6 +421,7 @@ export default function ProfileScreen() {
         activeTabId="profile"
         onSelectTab={(tabId) => {
           if (tabId === 'add') {
+            router.push('/chats' as never);
             return;
           }
 
