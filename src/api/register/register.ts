@@ -36,7 +36,8 @@ export async function registerUser(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data?.message ?? 'Erro ao realizar cadastro.');
+    const message = Array.isArray(data?.message) ? data.message[0] : data?.message;
+    throw new Error(message ?? 'Erro ao realizar cadastro.');
   }
 
   return data as RegisterResponse;
