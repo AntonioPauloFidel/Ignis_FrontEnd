@@ -353,7 +353,7 @@ export default function ProgressScreen() {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} hitSlop={10}>
+          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} hitSlop={10}>
             <Ionicons name="chevron-back" size={24} color={colors.darkBlue} />
           </Pressable>
 

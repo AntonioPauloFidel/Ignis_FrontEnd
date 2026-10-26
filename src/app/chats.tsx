@@ -253,7 +253,7 @@ export default function Chats() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={10}>
+          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} hitSlop={10}>
             <Ionicons name="chevron-back" size={26} color={colors.darkBlue} />
           </Pressable>
 
