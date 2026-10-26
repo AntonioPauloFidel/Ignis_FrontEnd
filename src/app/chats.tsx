@@ -207,17 +207,23 @@ export default function Chats() {
   }
 
   async function handleAttach() {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: [
-        'application/pdf',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      ],
-      copyToCacheDirectory: true,
-    });
+    let asset: DocumentPicker.DocumentPickerAsset;
 
-    if (result.canceled) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ],
+        copyToCacheDirectory: true,
+      });
 
-    const asset = result.assets[0];
+      if (result.canceled) return;
+      asset = result.assets[0];
+    } catch {
+      setError('Não foi possível abrir o seletor de arquivos.');
+      return;
+    }
 
     try {
       setUploading(true);
@@ -317,11 +323,11 @@ export default function Chats() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <Pressable onPress={handleAttach} disabled={uploading} hitSlop={8}>
+          <Pressable style={styles.attach} onPress={handleAttach} disabled={uploading}>
             {uploading ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
-              <Ionicons name="attach" size={26} color={colors.primary} />
+              <Ionicons name="attach" size={24} color={colors.primary} />
             )}
           </Pressable>
           <TextInput
@@ -332,7 +338,14 @@ export default function Chats() {
             placeholderTextColor="#94A3B8"
             multiline
             editable={!sending}
-            onSubmitEditing={handleSend}
+            // Na web, Enter envia e Shift+Enter quebra a linha
+            onKeyPress={(event) => {
+              const native = event.nativeEvent as unknown as { key: string; shiftKey?: boolean };
+              if (Platform.OS === 'web' && native.key === 'Enter' && !native.shiftKey) {
+                event.preventDefault();
+                handleSend();
+              }
+            }}
           />
           <Pressable
             style={[styles.send, (!input.trim() || sending) && { opacity: 0.4 }]}
@@ -467,6 +480,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lightGray,
     color: colors.darkBlue,
     fontSize: 15,
+  },
+  attach: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.softBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   send: {
     width: 40,
