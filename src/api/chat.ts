@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -19,6 +19,7 @@ export interface ChatFile {
   _id: string;
   name: string;
   size: number;
+  hasOriginal?: boolean;
 }
 
 export interface ChatDetail {
@@ -92,7 +93,31 @@ export async function uploadChatFile(id: string, picked: PickedFile): Promise<Ch
     { method: 'POST', body: form },
   );
 
-  return { _id: result.id, name: result.name, size: result.size };
+  return { _id: result.id, name: result.name, size: result.size, hasOriginal: true };
+}
+
+export const deleteChatFile = (chatId: string, fileId: string) =>
+  request(`/chats/${chatId}/files/${fileId}`, { method: 'DELETE' });
+
+/** Abre o PDF/DOCX original que o aluno enviou (guardado no servidor). */
+export async function openChatFile(chatId: string, fileId: string): Promise<void> {
+  const url = `${API_BASE_URL}/chats/${chatId}/files/${fileId}`;
+
+  if (Platform.OS !== 'web') {
+    await Linking.openURL(url);
+    return;
+  }
+
+  const response = await fetch(url, { credentials: 'include' });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.message ?? 'Não foi possível abrir o arquivo.');
+  }
+
+  const blobUrl = URL.createObjectURL(await response.blob());
+  window.open(blobUrl, '_blank');
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 }
 
 // No celular o fetch padrão não faz streaming; o do Expo faz.
