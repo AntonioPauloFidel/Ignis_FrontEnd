@@ -21,8 +21,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   createChat,
   deleteChat,
+  deleteChatFile,
   getChat,
   listChats,
+  openChatFile,
   sendMessageStream,
   uploadChatFile,
   type ChatFile,
@@ -32,6 +34,13 @@ import {
 import { colors } from '../constants/colors';
 
 const NEW_CHAT_TITLE = 'Novo chat';
+
+function formatMinutes(total: number) {
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (!hours) return `${minutes}min`;
+  return minutes ? `${hours}h${String(minutes).padStart(2, '0')}` : `${hours}h`;
+}
 
 // Renderiza só o básico de markdown que a IA usa: **negrito** e listas
 function FormattedText({ text, color }: { text: string; color: string }) {
@@ -78,6 +87,7 @@ export default function Chats() {
   const [title, setTitle] = useState(NEW_CHAT_TITLE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [files, setFiles] = useState<ChatFile[]>([]);
+  const [studyMinutes, setStudyMinutes] = useState(0);
   const [input, setInput] = useState('');
   const [opening, setOpening] = useState(false);
   const [sending, setSending] = useState(false);
@@ -126,6 +136,7 @@ export default function Chats() {
     setTitle(NEW_CHAT_TITLE);
     setMessages([]);
     setFiles([]);
+    setStudyMinutes(0);
     setError('');
     toggleDrawer(false);
   }
@@ -142,6 +153,7 @@ export default function Chats() {
       setTitle(chat.title);
       setMessages(chat.messages);
       setFiles(chat.files);
+      setStudyMinutes(chat.studyMinutes);
     } catch (err) {
       handleError(err, 'Não foi possível abrir a conversa.');
     } finally {
@@ -194,6 +206,8 @@ export default function Chats() {
 
       if (title === NEW_CHAT_TITLE) setTitle(content.slice(0, 50));
       loadChats();
+      // "estudei 2h" soma tempo no chat; atualiza o contador
+      getChat(id).then((chat) => setStudyMinutes(chat.studyMinutes)).catch(() => undefined);
     } catch (err) {
       handleError(err, 'Não foi possível enviar a mensagem.');
       // tira a resposta vazia; o backend também descarta a pergunta sem resposta
@@ -243,6 +257,27 @@ export default function Chats() {
     }
   }
 
+  async function handleOpenFile(file: ChatFile) {
+    if (!chatId) return;
+
+    try {
+      await openChatFile(chatId, file._id);
+    } catch (err) {
+      handleError(err, 'Não foi possível abrir o arquivo.');
+    }
+  }
+
+  async function handleRemoveFile(file: ChatFile) {
+    if (!chatId) return;
+
+    try {
+      await deleteChatFile(chatId, file._id);
+      setFiles((current) => current.filter((item) => item._id !== file._id));
+    } catch (err) {
+      handleError(err, 'Não foi possível remover o arquivo.');
+    }
+  }
+
   const translateX = drawer.interpolate({ inputRange: [0, 1], outputRange: [drawerWidth, 0] });
   const overlayOpacity = drawer.interpolate({ inputRange: [0, 1], outputRange: [0, 0.35] });
 
@@ -257,9 +292,14 @@ export default function Chats() {
             <Ionicons name="chevron-back" size={26} color={colors.darkBlue} />
           </Pressable>
 
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
+          <View style={styles.titleBox}>
+            <Text style={styles.title} numberOfLines={1}>
+              {title}
+            </Text>
+            {studyMinutes > 0 ? (
+              <Text style={styles.studyTime}>{formatMinutes(studyMinutes)} de estudo</Text>
+            ) : null}
+          </View>
 
           <View style={styles.headerActions}>
             <Pressable onPress={startNewChat} hitSlop={8}>
@@ -275,10 +315,19 @@ export default function Chats() {
           <View style={styles.files}>
             {files.map((file) => (
               <View key={file._id} style={styles.fileChip}>
-                <Ionicons name="document-text-outline" size={14} color={colors.primary} />
-                <Text style={styles.fileName} numberOfLines={1}>
-                  {file.name}
-                </Text>
+                <Pressable
+                  style={styles.fileOpen}
+                  onPress={() => handleOpenFile(file)}
+                  disabled={!file.hasOriginal}
+                >
+                  <Ionicons name="document-text-outline" size={14} color={colors.primary} />
+                  <Text style={styles.fileName} numberOfLines={1}>
+                    {file.name}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => handleRemoveFile(file)} hitSlop={8}>
+                  <Ionicons name="close" size={14} color={colors.primary} />
+                </Pressable>
               </View>
             ))}
           </View>
@@ -430,7 +479,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     gap: 12,
   },
-  title: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: colors.darkBlue },
+  titleBox: { flex: 1, alignItems: 'center' },
+  title: { textAlign: 'center', fontSize: 17, fontWeight: '700', color: colors.darkBlue },
+  studyTime: { fontSize: 11, color: colors.primary, marginTop: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   files: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 20, marginBottom: 6 },
   fileChip: {
@@ -443,7 +494,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.softBlue,
     maxWidth: 220,
   },
-  fileName: { fontSize: 12, color: colors.primary },
+  fileOpen: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
+  fileName: { fontSize: 12, color: colors.primary, flexShrink: 1 },
   list: { padding: 20, gap: 10, flexGrow: 1 },
   emptyBox: { alignItems: 'center', marginTop: 60, paddingHorizontal: 12 },
   emptyIcon: {
