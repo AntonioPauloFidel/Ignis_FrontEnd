@@ -159,6 +159,10 @@ function ProgressRing({
 }
 
 export default function HomeScreen() {
+  // Largura real da grade de estatísticas: em telas estreitas os cards encolhem, mas ficam lado a lado
+  const [statsWidth, setStatsWidth] = useState(0);
+  const compactStats = statsWidth > 0 && statsWidth < 300;
+
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
@@ -550,15 +554,6 @@ export default function HomeScreen() {
         <View style={styles.inlineActions}>
           <Pressable style={({ pressed }) => [styles.secondaryFeatureCard, pressed && styles.pressed]}>
             <View style={styles.featureHeader}>
-              <Text style={styles.featureIcon}>📄</Text>
-              <Text style={styles.featureTitle}>Estudar com IA</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.featureDescription}>Envie um arquivo e gere resumos e atividades personalizadas.</Text>
-          </Pressable>
-
-          <Pressable style={({ pressed }) => [styles.secondaryFeatureCard, pressed && styles.pressed]}>
-            <View style={styles.featureHeader}>
               <Text style={styles.featureIcon}>🏆</Text>
               <Text style={styles.featureTitle}>Desafios</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
@@ -575,12 +570,28 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.progressGrid}>
+          <View
+            style={styles.progressGrid}
+            onLayout={(event) => setStatsWidth(event.nativeEvent.layout.width)}
+          >
             {focusStats.map((item, index) => (
-              <View key={`${item.label}-${index}`} style={styles.statItem}>
-                <Text style={styles.statIcon}>{item.icon}</Text>
-                <Text style={styles.statLabel}>{item.label}</Text>
-                <Text style={styles.statValue}>{item.value}</Text>
+              <View
+                key={`${item.label}-${index}`}
+                style={[styles.statItem, compactStats && styles.statItemCompact]}
+              >
+                <Text style={[styles.statIcon, compactStats && styles.statIconCompact]}>
+                  {item.icon}
+                </Text>
+                <Text style={[styles.statLabel, compactStats && styles.statLabelCompact]} numberOfLines={1}>
+                  {item.label}
+                </Text>
+                <Text
+                  style={[styles.statValue, compactStats && styles.statValueCompact]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {item.value}
+                </Text>
               </View>
             ))}
           </View>
@@ -924,7 +935,8 @@ const styles = StyleSheet.create({
   progressGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
+    rowGap: 12,
   },
   statItem: {
     width: '48%',
@@ -947,6 +959,21 @@ const styles = StyleSheet.create({
     color: colors.darkBlue,
     fontSize: 20,
     fontWeight: '800',
+  },
+  statItemCompact: {
+    padding: 10,
+    borderRadius: 14,
+  },
+  statIconCompact: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  statLabelCompact: {
+    fontSize: 11,
+    marginBottom: 3,
+  },
+  statValueCompact: {
+    fontSize: 17,
   },
   infoBadge: {
     alignItems: 'center',
