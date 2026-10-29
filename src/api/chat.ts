@@ -1,0 +1,145 @@
+import { Platform } from 'react-native';
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+
+export interface ChatSummary {
+  _id: string;
+  title: string;
+  studyMinutes?: number;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  _id?: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatFile {
+  _id: string;
+  name: string;
+  size: number;
+}
+
+export interface ChatDetail {
+  id: string;
+  title: string;
+  studyMinutes: number;
+  messages: ChatMessage[];
+  files: ChatFile[];
+}
+
+export interface PickedFile {
+  name: string;
+  uri: string;
+  mimeType?: string;
+  file?: File; // web
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
+    ...init,
+    headers: { Accept: 'application/json', ...(init.headers ?? {}) },
+  });
+
+  const raw = await response.text();
+  const data = raw ? JSON.parse(raw) : null;
+
+  if (!response.ok) {
+    const message = Array.isArray(data?.message) ? data.message[0] : data?.message;
+    throw new Error(message ?? 'Erro ao acessar a API.');
+  }
+
+  return data as T;
+}
+
+const json = (body: object): RequestInit => ({
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+});
+
+export const listChats = () => request<ChatSummary[]>('/chats');
+
+export const createChat = () =>
+  request<{ _id: string }>('/chats', { method: 'POST', ...json({}) });
+
+export const getChat = (id: string) => request<ChatDetail>(`/chats/${id}`);
+
+export const deleteChat = (id: string) => request(`/chats/${id}`, { method: 'DELETE' });
+
+export const addStudyTime = (id: string, minutes: number) =>
+  request<{ studyMinutes: number }>(`/chats/${id}/study-time`, {
+    method: 'PATCH',
+    ...json({ minutes }),
+  });
+
+export async function uploadChatFile(id: string, picked: PickedFile): Promise<ChatFile> {
+  const form = new FormData();
+
+  if (Platform.OS === 'web' && picked.file) {
+    form.append('file', picked.file, picked.name);
+  } else {
+    form.append('file', {
+      uri: picked.uri,
+      name: picked.name,
+      type: picked.mimeType ?? 'application/octet-stream',
+    } as unknown as Blob);
+  }
+
+  const result = await request<{ id: string; name: string; size: number }>(
+    `/chats/${id}/files`,
+    { method: 'POST', body: form },
+  );
+
+  return { _id: result.id, name: result.name, size: result.size };
+}
+
+// No celular o fetch padrão não faz streaming; o do Expo faz.
+function streamingFetch(): typeof fetch {
+  if (Platform.OS === 'web') return fetch;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('expo/fetch').fetch as typeof fetch;
+}
+
+/** Envia a mensagem e chama onDelta a cada pedaço da resposta da IA. */
+export async function sendMessageStream(
+  id: string,
+  content: string,
+  onDelta: (piece: string) => void,
+): Promise<void> {
+  const response = await streamingFetch()(`${API_BASE_URL}/chats/${id}/messages`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok || !response.body) {
+    const data = await response.json().catch(() => null);
+    const message = Array.isArray(data?.message) ? data.message[0] : data?.message;
+    throw new Error(message ?? 'Não foi possível enviar a mensagem.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split('\n\n');
+    buffer = events.pop() ?? '';
+
+    for (const event of events) {
+      if (!event.startsWith('data:')) continue;
+
+      const payload = JSON.parse(event.slice(5).trim());
+
+      if (payload.type === 'delta') onDelta(payload.content);
+      if (payload.type === 'error') throw new Error(payload.message);
+    }
+  }
+}

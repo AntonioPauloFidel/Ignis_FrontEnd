@@ -592,6 +592,7 @@ export default function HomeScreen() {
         activeTabId="home"
         onSelectTab={(tabId) => {
           if (tabId === 'add') {
+            router.push('/chats' as never);
             return;
           }
 
