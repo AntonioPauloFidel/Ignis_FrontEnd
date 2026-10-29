@@ -66,6 +66,17 @@ export default function Register() {
       return;
     }
 
+    // Validação de e-mail e tamanho da senha (mesmas regras do backend)
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setError('Informe um e-mail válido.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('A senha deve ter pelo menos 8 caracteres.');
+      return;
+    }
+
     // Validação de confirmação de senha
     if (password !== confirmPassword) {
       setError('As senhas não coincidem.');
