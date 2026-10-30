@@ -20,6 +20,10 @@ describe('parseInline', () => {
     ]);
   });
 
+  it('troca <br> por quebra de linha', () => {
+    expect(parseInline('a<br>b<br/>c')).toEqual([{ type: 'text', text: 'a\nb\nc' }]);
+  });
+
   it('ignora links que não são http(s)', () => {
     expect(parseInline('[x](javascript:alert(1))')).toEqual([
       { type: 'text', text: '[x](javascript:alert(1))' },

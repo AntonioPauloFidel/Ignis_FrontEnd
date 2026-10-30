@@ -19,7 +19,9 @@ export type Block =
 const INLINE_PATTERN =
   /(`[^`\n]+`)|(\*\*[^*\n]+?\*\*)|(__[^_\n]+?__)|(\[[^\]\n]+\]\(https?:\/\/[^)\s]+\))|(\*[^*\s][^*\n]*?\*)|(?<![A-Za-z0-9])(_[^_\s][^_\n]*?_)(?![A-Za-z0-9])/g;
 
-export function parseInline(text: string): Inline[] {
+export function parseInline(source: string): Inline[] {
+  // A IA às vezes usa <br> para quebrar linha dentro de células de tabela
+  const text = source.replace(/<br\s*\/?>/gi, '\n');
   const result: Inline[] = [];
   let last = 0;
 
