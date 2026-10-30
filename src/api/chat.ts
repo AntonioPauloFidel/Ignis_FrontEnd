@@ -9,10 +9,16 @@ export interface ChatSummary {
   updatedAt: string;
 }
 
+export interface ChatSource {
+  file: string;
+  page?: number;
+}
+
 export interface ChatMessage {
   _id?: string;
   role: 'user' | 'assistant';
   content: string;
+  sources?: ChatSource[];
 }
 
 export interface ChatFile {
@@ -141,9 +147,10 @@ export async function sendMessageStream(
   content: string,
   onDelta: (piece: string) => void,
   signal?: AbortSignal,
+  onSources?: (sources: ChatSource[]) => void,
 ): Promise<void> {
   try {
-    await readStream(id, content, onDelta, signal);
+    await readStream(id, content, onDelta, signal, onSources);
   } catch (error) {
     if (signal?.aborted && isAbort(error)) return;
     throw error;
@@ -155,6 +162,7 @@ async function readStream(
   content: string,
   onDelta: (piece: string) => void,
   signal?: AbortSignal,
+  onSources?: (sources: ChatSource[]) => void,
 ): Promise<void> {
   const response = await streamingFetch()(`${API_BASE_URL}/chats/${id}/messages`, {
     method: 'POST',
@@ -188,6 +196,7 @@ async function readStream(
       const payload = JSON.parse(event.slice(5).trim());
 
       if (payload.type === 'delta') onDelta(payload.content);
+      if (payload.type === 'sources') onSources?.(payload.sources);
       if (payload.type === 'error') throw new Error(payload.message);
     }
   }
