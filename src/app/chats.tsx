@@ -186,7 +186,13 @@ export default function Chats() {
           next[next.length - 1] = { ...last, content: last.content + piece };
           return next;
         });
-      }, controller.signal);
+      }, controller.signal, (sources) => {
+        setMessages((current) => {
+          const next = [...current];
+          next[next.length - 1] = { ...next[next.length - 1], sources };
+          return next;
+        });
+      });
 
       // Parou antes de chegar qualquer texto: o back descarta a pergunta, então devolve ao campo
       if (controller.signal.aborted && !received) {
@@ -401,6 +407,21 @@ export default function Chats() {
                   ) : (
                     <ActivityIndicator size="small" color={colors.primary} />
                   )}
+
+                  {!mine && item.sources?.length ? (
+                    <View style={styles.sources}>
+                      <Text style={styles.sourcesLabel}>Fontes</Text>
+                      {item.sources.map((source) => (
+                        <View key={`${source.file}-${source.page ?? 0}`} style={styles.sourceChip}>
+                          <Ionicons name="document-text-outline" size={12} color={colors.primary} />
+                          <Text style={styles.sourceText} numberOfLines={1}>
+                            {source.file}
+                            {source.page ? ` · p. ${source.page}` : ''}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
               );
             }}
@@ -524,6 +545,28 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   titleBox: { flex: 1, alignItems: 'center' },
+  sources: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  sourcesLabel: { fontSize: 11, fontWeight: '700', color: '#64748B' },
+  sourceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: '100%',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: colors.softBlue,
+  },
+  sourceText: { fontSize: 11, color: colors.primary, flexShrink: 1 },
   myText: { color: '#FFFFFF', fontSize: 15, lineHeight: 22 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' },
   title: { flexShrink: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: colors.darkBlue },
