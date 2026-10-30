@@ -67,6 +67,9 @@ export const createChat = () =>
 
 export const getChat = (id: string) => request<ChatDetail>(`/chats/${id}`);
 
+export const renameChat = (id: string, title: string) =>
+  request<{ id: string; title: string }>(`/chats/${id}`, { method: 'PATCH', ...json({ title }) });
+
 export const deleteChat = (id: string) => request(`/chats/${id}`, { method: 'DELETE' });
 
 export const addStudyTime = (id: string, minutes: number) =>
@@ -127,17 +130,38 @@ function streamingFetch(): typeof fetch {
   return require('expo/fetch').fetch as typeof fetch;
 }
 
-/** Envia a mensagem e chama onDelta a cada pedaço da resposta da IA. */
+const isAbort = (error: unknown) => (error as { name?: string })?.name === 'AbortError';
+
+/**
+ * Envia a mensagem e chama onDelta a cada pedaço da resposta da IA.
+ * Se o aluno cancelar pelo `signal`, termina sem erro e o texto parcial já recebido é mantido.
+ */
 export async function sendMessageStream(
   id: string,
   content: string,
   onDelta: (piece: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await readStream(id, content, onDelta, signal);
+  } catch (error) {
+    if (signal?.aborted && isAbort(error)) return;
+    throw error;
+  }
+}
+
+async function readStream(
+  id: string,
+  content: string,
+  onDelta: (piece: string) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const response = await streamingFetch()(`${API_BASE_URL}/chats/${id}/messages`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
+    signal,
   });
 
   if (!response.ok || !response.body) {
