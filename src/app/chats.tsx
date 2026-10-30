@@ -32,6 +32,7 @@ import {
   type ChatMessage,
   type ChatSummary,
 } from '../api/chat';
+import { Markdown } from '../components/Markdown';
 import { colors } from '../constants/colors';
 
 const NEW_CHAT_TITLE = 'Novo chat';
@@ -41,32 +42,6 @@ function formatMinutes(total: number) {
   const minutes = total % 60;
   if (!hours) return `${minutes}min`;
   return minutes ? `${hours}h${String(minutes).padStart(2, '0')}` : `${hours}h`;
-}
-
-// Renderiza só o básico de markdown que a IA usa: **negrito** e listas
-function FormattedText({ text, color }: { text: string; color: string }) {
-  const lines = text
-    .split('\n')
-    .map((line) => line.replace(/^\s*[-*]\s+/, '• ').replace(/^#+\s*/, ''));
-
-  return (
-    <Text style={{ color, fontSize: 15, lineHeight: 22 }}>
-      {lines.map((line, lineIndex) => (
-        <Text key={lineIndex}>
-          {line.split(/(\*\*[^*]+\*\*)/g).map((part, index) =>
-            part.startsWith('**') && part.endsWith('**') ? (
-              <Text key={index} style={{ fontWeight: '700' }}>
-                {part.slice(2, -2)}
-              </Text>
-            ) : (
-              part
-            ),
-          )}
-          {lineIndex < lines.length - 1 ? '\n' : ''}
-        </Text>
-      ))}
-    </Text>
-  );
 }
 
 function formatDate(iso: string) {
@@ -418,7 +393,11 @@ export default function Chats() {
               return (
                 <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
                   {item.content ? (
-                    <FormattedText text={item.content} color={mine ? '#FFFFFF' : colors.darkBlue} />
+                    mine ? (
+                      <Text style={styles.myText}>{item.content}</Text>
+                    ) : (
+                      <Markdown text={item.content} color={colors.darkBlue} />
+                    )
                   ) : (
                     <ActivityIndicator size="small" color={colors.primary} />
                   )}
@@ -545,6 +524,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   titleBox: { flex: 1, alignItems: 'center' },
+  myText: { color: '#FFFFFF', fontSize: 15, lineHeight: 22 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' },
   title: { flexShrink: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: colors.darkBlue },
   titleInput: {
