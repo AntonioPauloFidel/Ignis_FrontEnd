@@ -25,6 +25,7 @@ import {
   getChat,
   listChats,
   openChatFile,
+  renameChat,
   sendMessageStream,
   uploadChatFile,
   type ChatFile,
@@ -89,6 +90,9 @@ export default function Chats() {
   const [files, setFiles] = useState<ChatFile[]>([]);
   const [studyMinutes, setStudyMinutes] = useState(0);
   const [input, setInput] = useState('');
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
   const [opening, setOpening] = useState(false);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -183,6 +187,9 @@ export default function Chats() {
     const content = input.trim();
     if (!content || sending) return;
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setInput('');
     setError('');
     setSending(true);
@@ -194,15 +201,24 @@ export default function Chats() {
 
     try {
       const id = await ensureChat();
+      let received = false;
 
       await sendMessageStream(id, content, (piece) => {
+        received = true;
         setMessages((current) => {
           const next = [...current];
           const last = next[next.length - 1];
           next[next.length - 1] = { ...last, content: last.content + piece };
           return next;
         });
-      });
+      }, controller.signal);
+
+      // Parou antes de chegar qualquer texto: o back descarta a pergunta, então devolve ao campo
+      if (controller.signal.aborted && !received) {
+        setMessages((current) => current.slice(0, -2));
+        setInput(content);
+        return;
+      }
 
       if (title === NEW_CHAT_TITLE) setTitle(content.slice(0, 50));
       loadChats();
@@ -216,7 +232,33 @@ export default function Chats() {
       );
       setInput(content);
     } finally {
+      abortRef.current = null;
       setSending(false);
+    }
+  }
+
+  function handleStop() {
+    abortRef.current?.abort();
+  }
+
+  function startRenaming() {
+    if (!chatId) return;
+    setTitleDraft(title);
+    setEditingTitle(true);
+  }
+
+  async function saveTitle() {
+    const next = titleDraft.trim();
+    setEditingTitle(false);
+
+    if (!chatId || !next || next === title) return;
+
+    try {
+      const renamed = await renameChat(chatId, next);
+      setTitle(renamed.title);
+      loadChats();
+    } catch (err) {
+      handleError(err, 'Não foi possível renomear o chat.');
     }
   }
 
@@ -293,9 +335,26 @@ export default function Chats() {
           </Pressable>
 
           <View style={styles.titleBox}>
-            <Text style={styles.title} numberOfLines={1}>
-              {title}
-            </Text>
+            {editingTitle ? (
+              <TextInput
+                style={styles.titleInput}
+                value={titleDraft}
+                onChangeText={setTitleDraft}
+                onSubmitEditing={saveTitle}
+                onBlur={saveTitle}
+                maxLength={80}
+                autoFocus
+                selectTextOnFocus
+                returnKeyType="done"
+              />
+            ) : (
+              <Pressable onPress={startRenaming} disabled={!chatId} style={styles.titleRow} hitSlop={6}>
+                <Text style={styles.title} numberOfLines={1}>
+                  {title}
+                </Text>
+                {chatId ? <Ionicons name="pencil" size={12} color={colors.primary} /> : null}
+              </Pressable>
+            )}
             {studyMinutes > 0 ? (
               <Text style={styles.studyTime}>{formatMinutes(studyMinutes)} de estudo</Text>
             ) : null}
@@ -396,13 +455,19 @@ export default function Chats() {
               }
             }}
           />
-          <Pressable
-            style={[styles.send, (!input.trim() || sending) && { opacity: 0.4 }]}
-            onPress={handleSend}
-            disabled={!input.trim() || sending}
-          >
-            <Ionicons name="send" size={18} color="#FFFFFF" />
-          </Pressable>
+          {sending ? (
+            <Pressable style={styles.send} onPress={handleStop} accessibilityLabel="Parar resposta">
+              <Ionicons name="stop" size={16} color="#FFFFFF" />
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[styles.send, !input.trim() && { opacity: 0.4 }]}
+              onPress={handleSend}
+              disabled={!input.trim()}
+            >
+              <Ionicons name="send" size={18} color="#FFFFFF" />
+            </Pressable>
+          )}
         </View>
       </KeyboardAvoidingView>
 
@@ -480,7 +545,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   titleBox: { flex: 1, alignItems: 'center' },
-  title: { textAlign: 'center', fontSize: 17, fontWeight: '700', color: colors.darkBlue },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' },
+  title: { flexShrink: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: colors.darkBlue },
+  titleInput: {
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.darkBlue,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary,
+    paddingVertical: 0,
+  },
   studyTime: { fontSize: 11, color: colors.primary, marginTop: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   files: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 20, marginBottom: 6 },
