@@ -174,6 +174,7 @@ export default function HomeScreen() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmingFinish, setConfirmingFinish] = useState(false);
 
   const cycleStatus = useMemo(
     () => getCycleStatus(activeCycle, selectedDurationMinutes),
@@ -338,6 +339,8 @@ export default function HomeScreen() {
 
   async function handleCompleteCycle() {
     if (!activeCycle?.id) return;
+
+    setConfirmingFinish(false);
 
     try {
       setIsSubmitting(true);
@@ -536,7 +539,7 @@ export default function HomeScreen() {
 
             {activeCycle && cycleStatus !== 'completed' ? (
               <Pressable
-                onPress={handleCompleteCycle}
+                onPress={() => setConfirmingFinish(true)}
                 style={({ pressed }) => [
                   styles.cancelAction,
                   pressed && styles.pressed,
@@ -547,6 +550,29 @@ export default function HomeScreen() {
               </Pressable>
             ) : null}
           </View>
+
+          {confirmingFinish ? (
+            <View style={styles.confirmBox}>
+              <Text style={styles.confirmText}>Finalizar este ciclo agora? Você não poderá continuá-lo depois.</Text>
+              <View style={styles.confirmActions}>
+                <Pressable
+                  onPress={() => setConfirmingFinish(false)}
+                  style={({ pressed }) => [styles.confirmKeep, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.confirmKeepText}>Cancelar</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleCompleteCycle}
+                  disabled={isSubmitting}
+                  style={({ pressed }) => [styles.confirmFinish, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.confirmFinishText}>Sim, finalizar</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
 
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
         </Card>
@@ -873,6 +899,50 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
     fontSize: 12,
+  },
+  confirmBox: {
+    marginTop: 12,
+    padding: 12,
+    gap: 10,
+    borderRadius: 12,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  confirmText: {
+    color: '#9A3412',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  confirmKeep: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  confirmKeepText: {
+    color: '#9A3412',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  confirmFinish: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#EA580C',
+  },
+  confirmFinishText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
   },
   pressed: {
     opacity: 0.85,
