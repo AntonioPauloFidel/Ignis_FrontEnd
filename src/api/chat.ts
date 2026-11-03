@@ -76,6 +76,9 @@ export const getChat = (id: string) => request<ChatDetail>(`/chats/${id}`);
 export const renameChat = (id: string, title: string) =>
   request<{ id: string; title: string }>(`/chats/${id}`, { method: 'PATCH', ...json({ title }) });
 
+export const deleteAllChats = () =>
+  request<{ message: string; deleted: Record<string, number> }>('/chats', { method: 'DELETE' });
+
 export const deleteChat = (id: string) => request(`/chats/${id}`, { method: 'DELETE' });
 
 export const addStudyTime = (id: string, minutes: number) =>
