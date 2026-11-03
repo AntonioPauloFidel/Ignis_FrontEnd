@@ -33,6 +33,7 @@ import {
   type ChatSummary,
 } from '../api/chat';
 import { Markdown } from '../components/Markdown';
+import { StudyMaterialPanel } from '../components/StudyMaterial';
 import { colors } from '../constants/colors';
 
 const NEW_CHAT_TITLE = 'Novo chat';
@@ -72,6 +73,7 @@ export default function Chats() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [materialOpen, setMaterialOpen] = useState(false);
 
   const handleError = useCallback(
     (err: unknown, fallback: string) => {
@@ -342,6 +344,16 @@ export default function Chats() {
           </View>
 
           <View style={styles.headerActions}>
+            {chatId && files.length > 0 ? (
+              <Pressable
+                onPress={() => setMaterialOpen(true)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Gerar material de estudo"
+              >
+                <Ionicons name="school-outline" size={24} color={colors.primary} />
+              </Pressable>
+            ) : null}
             <Pressable onPress={startNewChat} hitSlop={8}>
               <Ionicons name="create-outline" size={24} color={colors.primary} />
             </Pressable>
@@ -529,6 +541,10 @@ export default function Chats() {
           }}
         />
       </Animated.View>
+
+      {materialOpen && chatId ? (
+        <StudyMaterialPanel chatId={chatId} files={files} onClose={() => setMaterialOpen(false)} />
+      ) : null}
     </View>
   );
 }
