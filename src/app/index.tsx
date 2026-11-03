@@ -175,6 +175,7 @@ export default function HomeScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingFinish, setConfirmingFinish] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'start' | 'toggle' | 'finish' | null>(null);
 
   const cycleStatus = useMemo(
     () => getCycleStatus(activeCycle, selectedDurationMinutes),
@@ -294,6 +295,7 @@ export default function HomeScreen() {
   async function handleStartCycle() {
     try {
       setIsSubmitting(true);
+      setPendingAction('start');
       const cycle = await startStudyCycle({ durationMinutes: selectedDurationMinutes });
       setActiveCycle(cycle);
       setSelectedDurationMinutes(resolveDurationMinutes(cycle, selectedDurationMinutes));
@@ -308,6 +310,7 @@ export default function HomeScreen() {
       setErrorMessage('Não foi possível iniciar o ciclo.');
     } finally {
       setIsSubmitting(false);
+      setPendingAction(null);
     }
   }
 
@@ -316,6 +319,7 @@ export default function HomeScreen() {
 
     try {
       setIsSubmitting(true);
+      setPendingAction('toggle');
       if (cycleStatus === 'running') {
         const resumed = await pauseStudyCycle(activeCycle.id);
         setActiveCycle(resumed);
@@ -334,6 +338,7 @@ export default function HomeScreen() {
       setErrorMessage('Não foi possível alterar o ciclo.');
     } finally {
       setIsSubmitting(false);
+      setPendingAction(null);
     }
   }
 
@@ -344,6 +349,7 @@ export default function HomeScreen() {
 
     try {
       setIsSubmitting(true);
+      setPendingAction('finish');
       const completed = await completeStudyCycle(activeCycle.id);
       setActiveCycle(completed);
       setErrorMessage('');
@@ -357,6 +363,7 @@ export default function HomeScreen() {
       setErrorMessage('Não foi possível finalizar o ciclo.');
     } finally {
       setIsSubmitting(false);
+      setPendingAction(null);
     }
   }
 
@@ -471,6 +478,12 @@ export default function HomeScreen() {
                 <Text style={styles.liveText}>Em andamento</Text>
               </View>
             ) : null}
+            {activeCycle && cycleStatus === 'paused' ? (
+              <View style={styles.pausedPill}>
+                <Ionicons name="pause" size={10} color="#B45309" />
+                <Text style={styles.pausedText}>Pausado</Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.focusMain}>
@@ -519,9 +532,13 @@ export default function HomeScreen() {
                 ]}
                 disabled={isSubmitting}
               >
-                <Text style={styles.secondaryActionText}>
-                  {cycleStatus === 'running' ? 'PAUSAR' : 'CONTINUAR'}
-                </Text>
+                {pendingAction === 'toggle' ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={styles.secondaryActionText}>
+                    {cycleStatus === 'running' ? 'PAUSAR' : 'CONTINUAR'}
+                  </Text>
+                )}
               </Pressable>
             ) : (
               <Pressable
@@ -532,8 +549,14 @@ export default function HomeScreen() {
                 ]}
                 disabled={isSubmitting}
               >
-                <Ionicons name="play" size={18} color="#FFFFFF" />
-                <Text style={styles.primaryActionText}>INICIAR CICLO</Text>
+                {pendingAction === 'start' ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="play" size={18} color="#FFFFFF" />
+                    <Text style={styles.primaryActionText}>INICIAR CICLO</Text>
+                  </>
+                )}
               </Pressable>
             )}
 
@@ -546,7 +569,11 @@ export default function HomeScreen() {
                 ]}
                 disabled={isSubmitting}
               >
-                <Text style={styles.cancelActionText}>FINALIZAR</Text>
+                {pendingAction === 'finish' ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={styles.cancelActionText}>FINALIZAR</Text>
+                )}
               </Pressable>
             ) : null}
           </View>
@@ -770,6 +797,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 999,
+  },
+  pausedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  pausedText: {
+    color: '#B45309',
+    fontSize: 10,
+    fontWeight: '700',
   },
   liveDot: {
     width: 8,
