@@ -33,8 +33,10 @@ import {
   type ChatSummary,
 } from '../api/chat';
 import { Markdown } from '../components/Markdown';
+import { PrivacyNotice, DeleteDataButton } from '../components/PrivacyControls';
 import { StudyMaterialPanel } from '../components/StudyMaterial';
 import { colors } from '../constants/colors';
+import { acceptNotice, hasAcceptedNotice } from '../utils/privacy-notice';
 
 const NEW_CHAT_TITLE = 'Novo chat';
 
@@ -74,6 +76,7 @@ export default function Chats() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [materialOpen, setMaterialOpen] = useState(false);
+  const [noticeVisible, setNoticeVisible] = useState(() => !hasAcceptedNotice());
 
   const handleError = useCallback(
     (err: unknown, fallback: string) => {
@@ -120,6 +123,18 @@ export default function Chats() {
     setStudyMinutes(0);
     setError('');
     toggleDrawer(false);
+  }
+
+  // Depois de apagar tudo: limpa a tela, mas deixa o menu aberto para mostrar a confirmação
+  function handleAllDeleted() {
+    setChats([]);
+    setChatId(null);
+    setTitle(NEW_CHAT_TITLE);
+    setMessages([]);
+    setFiles([]);
+    setStudyMinutes(0);
+    setMaterialOpen(false);
+    setError('');
   }
 
   async function openChat(id: string) {
@@ -540,7 +555,18 @@ export default function Chats() {
             );
           }}
         />
+
+        <DeleteDataButton onDeleted={handleAllDeleted} />
       </Animated.View>
+
+      {noticeVisible ? (
+        <PrivacyNotice
+          onAccept={() => {
+            acceptNotice();
+            setNoticeVisible(false);
+          }}
+        />
+      ) : null}
 
       {materialOpen && chatId ? (
         <StudyMaterialPanel chatId={chatId} files={files} onClose={() => setMaterialOpen(false)} />
