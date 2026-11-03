@@ -105,6 +105,38 @@ export async function uploadChatFile(id: string, picked: PickedFile): Promise<Ch
   return { _id: result.id, name: result.name, size: result.size, hasOriginal: true };
 }
 
+export interface Flashcard {
+  front: string;
+  back: string;
+}
+
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  answerIndex: number;
+  explanation: string;
+}
+
+export type MaterialType = 'summary' | 'flashcards' | 'quiz';
+
+export interface StudyMaterial {
+  _id: string;
+  type: MaterialType;
+  fileName?: string;
+  createdAt: string;
+  content: string | Flashcard[] | QuizQuestion[];
+}
+
+export const generateMaterial = (
+  chatId: string,
+  body: { type: MaterialType; fileId?: string; count?: number },
+) => request<StudyMaterial>(`/chats/${chatId}/material`, { method: 'POST', ...json(body) });
+
+export const listMaterial = (chatId: string) => request<StudyMaterial[]>(`/chats/${chatId}/material`);
+
+export const deleteMaterial = (chatId: string, materialId: string) =>
+  request(`/chats/${chatId}/material/${materialId}`, { method: 'DELETE' });
+
 export const deleteChatFile = (chatId: string, fileId: string) =>
   request(`/chats/${chatId}/files/${fileId}`, { method: 'DELETE' });
 
