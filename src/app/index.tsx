@@ -7,6 +7,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View
 } from 'react-native';
 import { Circle, Svg } from 'react-native-svg';
@@ -27,9 +28,11 @@ import {
     type UserProfile,
     type UserStats
 } from '../api/home';
+import { suggestCycleTitle } from '../api/chat';
 import { Card } from '../components/Card';
 import { NavBar, type TabItem } from '../components/NavBar';
 import { colors } from '../constants/colors';
+import { CYCLE_TITLE_MAX, normalizeTitleInput } from '../utils/cycles';
 
 const DEFAULT_DURATION_MINUTES = 25;
 const PRESET_DURATIONS = [15, 20, 25, 30, 35, 40];
@@ -176,6 +179,9 @@ export default function HomeScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingFinish, setConfirmingFinish] = useState(false);
   const [pendingAction, setPendingAction] = useState<'start' | 'toggle' | 'finish' | null>(null);
+  const [titleDraft, setTitleDraft] = useState('');
+  const [suggesting, setSuggesting] = useState(false);
+  const [titleError, setTitleError] = useState('');
 
   const cycleStatus = useMemo(
     () => getCycleStatus(activeCycle, selectedDurationMinutes),
@@ -292,11 +298,31 @@ export default function HomeScreen() {
     return () => clearTimeout(timeout);
   }, [loadHome]);
 
+  async function handleSuggestTitle() {
+    setSuggesting(true);
+    setTitleError('');
+
+    try {
+      const { title } = await suggestCycleTitle();
+      setTitleDraft(normalizeTitleInput(title));
+    } catch (error) {
+      setTitleError((error as Error)?.message || 'Não foi possível sugerir um título.');
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
   async function handleStartCycle() {
     try {
       setIsSubmitting(true);
       setPendingAction('start');
-      const cycle = await startStudyCycle({ durationMinutes: selectedDurationMinutes });
+      const title = normalizeTitleInput(titleDraft);
+      const cycle = await startStudyCycle({
+        durationMinutes: selectedDurationMinutes,
+        ...(title ? { title } : {}),
+      });
+      setTitleDraft('');
+      setTitleError('');
       setActiveCycle(cycle);
       setSelectedDurationMinutes(resolveDurationMinutes(cycle, selectedDurationMinutes));
       setErrorMessage('');
@@ -486,6 +512,12 @@ export default function HomeScreen() {
             ) : null}
           </View>
 
+          {activeCycle && typeof activeCycle.title === 'string' && activeCycle.title.trim() ? (
+            <Text style={styles.activeCycleTitle} numberOfLines={2} testID="active-cycle-title">
+              {activeCycle.title.trim()}
+            </Text>
+          ) : null}
+
           <View style={styles.focusMain}>
             <View style={styles.timerWrap}>
               <ProgressRing size={160} progress={progressPercent} active={cycleStatus !== 'completed'} />
@@ -521,6 +553,38 @@ export default function HomeScreen() {
               </Pressable>
             ))}
           </View>
+
+          {!activeCycle ? (
+            <View style={styles.titleBox}>
+              <View style={styles.titleRow}>
+                <TextInput
+                  testID="cycle-title-field"
+                  value={titleDraft}
+                  onChangeText={setTitleDraft}
+                  maxLength={CYCLE_TITLE_MAX}
+                  placeholder="O que vai estudar? (opcional)"
+                  placeholderTextColor={colors.neutralGray}
+                  editable={!isSubmitting}
+                  style={styles.titleInput}
+                />
+                <Pressable
+                  testID="suggest-title"
+                  onPress={handleSuggestTitle}
+                  disabled={suggesting || isSubmitting}
+                  style={({ pressed }) => [styles.suggestButton, (suggesting || pressed) && styles.pressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sugerir título com IA"
+                >
+                  {suggesting ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
+                  )}
+                </Pressable>
+              </View>
+              {titleError ? <Text style={styles.titleError}>{titleError}</Text> : null}
+            </View>
+          ) : null}
 
           <View style={styles.actionRow}>
             {cycleStatus === 'running' || cycleStatus === 'paused' ? (
@@ -867,6 +931,45 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
     fontSize: 16,
+  },
+  activeCycleTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.darkBlue,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  titleBox: {
+    marginBottom: 16,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  titleInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.darkBlue,
+    backgroundColor: '#FFFFFF',
+  },
+  suggestButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.softBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleError: {
+    color: '#DC2626',
+    fontSize: 12,
+    marginTop: 6,
   },
   presetRow: {
     flexDirection: 'row',
