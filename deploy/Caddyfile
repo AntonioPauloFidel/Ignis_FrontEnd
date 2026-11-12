@@ -1,0 +1,12 @@
+:80 {
+	root * /srv
+	encode gzip
+
+	# Arquivos com hash no nome nunca mudam: o navegador pode guardar por um ano
+	@assets path /_expo/* /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# Telas do Expo Router: /chats -> chats.html; qualquer outra rota cai no index.html
+	try_files {path} {path}.html /index.html
+	file_server
+}
