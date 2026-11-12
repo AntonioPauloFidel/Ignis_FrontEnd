@@ -79,6 +79,13 @@ export const renameChat = (id: string, title: string) =>
 export const deleteAllChats = () =>
   request<{ message: string; deleted: Record<string, number> }>('/chats', { method: 'DELETE' });
 
+// Sugere o título de um ciclo de estudo a partir de uma conversa (a mais recente, se não informar)
+export const suggestCycleTitle = (chatId?: string) =>
+  request<{ title: string; chatId: string }>('/chats/cycle-title', {
+    method: 'POST',
+    ...json(chatId ? { chatId } : {}),
+  });
+
 export const deleteChat = (id: string) => request(`/chats/${id}`, { method: 'DELETE' });
 
 export const addStudyTime = (id: string, minutes: number) =>

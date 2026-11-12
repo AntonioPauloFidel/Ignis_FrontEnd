@@ -122,6 +122,7 @@ export interface Achievement {
 
 export interface StartCyclePayload {
   durationMinutes: number;
+  title?: string;
 }
 
 interface ApiError extends Error {
