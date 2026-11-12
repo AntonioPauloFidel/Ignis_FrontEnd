@@ -430,6 +430,11 @@ export default function ProfileScreen() {
             return;
           }
 
+          if (tabId === 'cycles') {
+            router.push('/ciclos' as never);
+            return;
+          }
+
           if (tabId === 'progress') {
             router.push('/progress' as never);
             return;

@@ -43,6 +43,9 @@ export interface StudyCycle {
   remainingMs?: number | null;
   totalDurationMs?: number | null;
   ignisReward?: number;
+  ignisEarned?: number;
+  title?: string | null;
+  pausedSeconds?: number;
   createdAt?: string;
   updatedAt?: string;
   [key: string]: unknown;
@@ -355,5 +358,15 @@ export async function logoutUser(): Promise<void> {
     headers: {
       'Content-Type': 'application/json',
     },
+  });
+}
+
+export async function renameStudyCycle(cycleId: string | number, title: string): Promise<StudyCycle> {
+  return requestJson<StudyCycle>(`/study-cycles/${cycleId}/title`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ title }),
   });
 }
