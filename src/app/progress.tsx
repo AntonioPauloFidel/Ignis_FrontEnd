@@ -570,7 +570,7 @@ export default function ProgressScreen() {
           }
 
           if (tabId === 'cycles') {
-            router.push('/');
+            router.push('/ciclos' as never);
             return;
           }
 
