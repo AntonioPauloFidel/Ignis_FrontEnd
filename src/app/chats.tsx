@@ -26,17 +26,20 @@ import {
   listChats,
   openChatFile,
   renameChat,
+  searchChats,
   sendMessageStream,
   setMessageFeedback,
   uploadChatFile,
   type ChatFile,
   type ChatMessage,
+  type ChatSearchResult,
   type ChatSummary,
 } from '../api/chat';
 import { Markdown } from '../components/Markdown';
 import { PrivacyNotice, DeleteDataButton } from '../components/PrivacyControls';
 import { StudyMaterialPanel } from '../components/StudyMaterial';
 import { colors } from '../constants/colors';
+import { highlight, searchable, SEARCH_DELAY_MS } from '../utils/chat-search';
 import { canRate, toggleFeedback } from '../utils/feedback';
 import { acceptNotice, hasAcceptedNotice } from '../utils/privacy-notice';
 
@@ -64,6 +67,10 @@ export default function Chats() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [searchText, setSearchText] = useState('');
+  const [searchResults, setSearchResults] = useState<ChatSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
   const [title, setTitle] = useState(NEW_CHAT_TITLE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -106,8 +113,44 @@ export default function Chats() {
       .catch((err) => handleError(err, 'Não foi possível carregar suas conversas.'));
   }, [handleError]);
 
+  // Muda o texto da busca já acertando o estado: abaixo de 2 letras não há busca nem resultado antigo na tela
+  function changeSearch(text: string) {
+    setSearchText(text);
+    setSearchFailed(false);
+    setSearching(searchable(text));
+    if (!searchable(text)) setSearchResults([]);
+  }
+
+  // Busca nas conversas: espera o aluno parar de digitar e ignora respostas de buscas que já ficaram para trás
+  useEffect(() => {
+    if (!searchable(searchText)) return;
+
+    const controller = new AbortController();
+
+    const timer = setTimeout(() => {
+      searchChats(searchText.trim(), controller.signal)
+        .then((results) => {
+          setSearchResults(results);
+          setSearching(false);
+        })
+        .catch((err) => {
+          if (controller.signal.aborted) return;
+          setSearchResults([]);
+          setSearchFailed(true);
+          setSearching(false);
+          if (err instanceof Error && err.message.includes('Token')) router.replace('/login');
+        });
+    }, SEARCH_DELAY_MS);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchText, router]);
+
   function toggleDrawer(open: boolean) {
     setDrawerOpen(open);
+    if (!open) changeSearch('');
     Animated.timing(drawer, {
       toValue: open ? 1 : 0,
       duration: 240,
@@ -590,6 +633,72 @@ export default function Chats() {
           <Text style={styles.newButtonText}>Novo chat</Text>
         </Pressable>
 
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={16} color="#94A3B8" />
+          <TextInput
+            style={styles.searchInput}
+            value={searchText}
+            onChangeText={changeSearch}
+            placeholder="Buscar nas conversas"
+            placeholderTextColor="#94A3B8"
+            accessibilityLabel="Buscar nas conversas"
+            returnKeyType="search"
+            autoCorrect={false}
+            maxLength={100}
+          />
+          {searchText ? (
+            <Pressable onPress={() => changeSearch('')} hitSlop={10} accessibilityLabel="Limpar a busca">
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+            </Pressable>
+          ) : null}
+        </View>
+
+        {searchText.trim() ? (
+          <FlatList
+            data={searchable(searchText) && !searchFailed ? searchResults : []}
+            keyExtractor={(result) => result.chatId}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              !searchable(searchText) ? (
+                <Text style={styles.drawerEmpty}>Digite pelo menos 2 letras.</Text>
+              ) : searching ? (
+                <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
+              ) : searchFailed ? (
+                <Text style={styles.drawerEmpty}>Não foi possível buscar. Tente de novo.</Text>
+              ) : (
+                <Text style={styles.drawerEmpty}>Nada encontrado para &quot;{searchText.trim()}&quot;.</Text>
+              )
+            }
+            renderItem={({ item }) => (
+              <Pressable
+                style={[styles.item, item.chatId === chatId && styles.itemActive]}
+                onPress={() => openChat(item.chatId)}
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir conversa ${item.title}`}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemTitle} numberOfLines={1}>
+                    {highlight(item.title, searchText).map((part, index) => (
+                      <Text key={index} style={part.match ? styles.highlight : undefined}>
+                        {part.text}
+                      </Text>
+                    ))}
+                  </Text>
+                  {item.matches.slice(0, 2).map((match) => (
+                    <Text key={match.messageId} style={styles.snippet} numberOfLines={2}>
+                      {highlight(match.snippet, searchText).map((part, index) => (
+                        <Text key={index} style={part.match ? styles.highlight : undefined}>
+                          {part.text}
+                        </Text>
+                      ))}
+                    </Text>
+                  ))}
+                  <Text style={styles.itemDate}>{formatDate(item.updatedAt)}</Text>
+                </View>
+              </Pressable>
+            )}
+          />
+        ) : (
         <FlatList
           data={chats}
           keyExtractor={(chat) => chat._id}
@@ -614,6 +723,7 @@ export default function Chats() {
             );
           }}
         />
+        )}
 
         <DeleteDataButton onDeleted={handleAllDeleted} />
       </Animated.View>
@@ -799,6 +909,19 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   newButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 10,
+  },
+  searchInput: { flex: 1, fontSize: 14, color: colors.darkBlue, paddingVertical: 0, outlineStyle: 'none' } as object,
+  snippet: { fontSize: 12, color: '#475569', marginTop: 3, lineHeight: 17 },
+  highlight: { backgroundColor: '#FEF08A', color: colors.darkBlue, fontWeight: '700' },
   drawerEmpty: { color: colors.neutralGray, textAlign: 'center', marginTop: 24 },
   item: {
     flexDirection: 'row',

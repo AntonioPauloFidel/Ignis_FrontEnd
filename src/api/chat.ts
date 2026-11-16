@@ -27,6 +27,15 @@ export interface ChatMessage {
   direct?: boolean;
 }
 
+export interface ChatSearchResult {
+  chatId: string;
+  title: string;
+  updatedAt: string;
+  /** O título também contém a busca. */
+  titleMatch: boolean;
+  matches: { messageId: string; role: 'user' | 'assistant'; snippet: string }[];
+}
+
 export interface ChatFile {
   _id: string;
   name: string;
@@ -78,6 +87,10 @@ export const createChat = () =>
   request<{ _id: string }>('/chats', { method: 'POST', ...json({}) });
 
 export const getChat = (id: string) => request<ChatDetail>(`/chats/${id}`);
+
+/** Busca nos títulos e mensagens do aluno (até 20 chats, com trechos). */
+export const searchChats = (q: string, signal?: AbortSignal) =>
+  request<ChatSearchResult[]>(`/chats/search?q=${encodeURIComponent(q)}`, { signal });
 
 export const renameChat = (id: string, title: string) =>
   request<{ id: string; title: string }>(`/chats/${id}`, { method: 'PATCH', ...json({ title }) });
