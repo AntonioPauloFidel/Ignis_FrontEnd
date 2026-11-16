@@ -14,11 +14,17 @@ export interface ChatSource {
   page?: number;
 }
 
+export type Feedback = 'up' | 'down';
+
 export interface ChatMessage {
   _id?: string;
   role: 'user' | 'assistant';
   content: string;
   sources?: ChatSource[];
+  /** 👍/👎 do aluno; null/ausente = sem avaliação. */
+  feedback?: Feedback | null;
+  /** Resposta montada direto do banco (não é da IA): não se avalia. */
+  direct?: boolean;
 }
 
 export interface ChatFile {
@@ -84,6 +90,13 @@ export const suggestCycleTitle = (chatId?: string) =>
   request<{ title: string; chatId: string }>('/chats/cycle-title', {
     method: 'POST',
     ...json(chatId ? { chatId } : {}),
+  });
+
+/** 👍/👎 numa resposta da IA; `null` remove a avaliação. */
+export const setMessageFeedback = (chatId: string, messageId: string, feedback: Feedback | null) =>
+  request<{ id: string; feedback: Feedback | null }>(`/chats/${chatId}/messages/${messageId}/feedback`, {
+    method: 'PATCH',
+    ...json({ feedback }),
   });
 
 export const deleteChat = (id: string) => request(`/chats/${id}`, { method: 'DELETE' });

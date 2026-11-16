@@ -27,6 +27,7 @@ import {
   openChatFile,
   renameChat,
   sendMessageStream,
+  setMessageFeedback,
   uploadChatFile,
   type ChatFile,
   type ChatMessage,
@@ -36,6 +37,7 @@ import { Markdown } from '../components/Markdown';
 import { PrivacyNotice, DeleteDataButton } from '../components/PrivacyControls';
 import { StudyMaterialPanel } from '../components/StudyMaterial';
 import { colors } from '../constants/colors';
+import { canRate, toggleFeedback } from '../utils/feedback';
 import { acceptNotice, hasAcceptedNotice } from '../utils/privacy-notice';
 
 const NEW_CHAT_TITLE = 'Novo chat';
@@ -221,7 +223,13 @@ export default function Chats() {
       if (title === NEW_CHAT_TITLE) setTitle(content.slice(0, 50));
       loadChats();
       // "estudei 2h" soma tempo no chat; atualiza o contador
-      getChat(id).then((chat) => setStudyMinutes(chat.studyMinutes)).catch(() => undefined);
+      // e traz do servidor o id e o estado das mensagens, para a resposta nova poder receber 👍/👎
+      getChat(id)
+        .then((chat) => {
+          setStudyMinutes(chat.studyMinutes);
+          setMessages((current) => (chat.messages.length === current.length ? chat.messages : current));
+        })
+        .catch(() => undefined);
     } catch (err) {
       handleError(err, 'Não foi possível enviar a mensagem.');
       // tira a resposta vazia; o backend também descarta a pergunta sem resposta
@@ -232,6 +240,27 @@ export default function Chats() {
     } finally {
       abortRef.current = null;
       setSending(false);
+    }
+  }
+
+  // 👍/👎: muda na hora e volta ao estado anterior se o servidor não aceitar
+  async function handleFeedback(messageId: string, pressed: 'up' | 'down') {
+    if (!chatId) return;
+
+    const previous = messages.find((message) => message._id === messageId)?.feedback ?? null;
+    const next = toggleFeedback(previous, pressed);
+    const apply = (feedback: 'up' | 'down' | null) =>
+      setMessages((current) => current.map((message) => (message._id === messageId ? { ...message, feedback } : message)));
+
+    apply(next);
+
+    try {
+      await setMessageFeedback(chatId, messageId, next);
+    } catch (err) {
+      apply(previous);
+      // Falha de rede não mostra texto técnico; sessão expirada continua levando ao login
+      const expired = err instanceof Error && err.message.includes('Token');
+      handleError(expired ? err : null, 'Não foi possível salvar a avaliação.');
     }
   }
 
@@ -421,8 +450,9 @@ export default function Chats() {
                 </Text>
               </View>
             }
-            renderItem={({ item }) => {
+            renderItem={({ item, index }) => {
               const mine = item.role === 'user';
+              const rateable = canRate(item, sending && index === messages.length - 1);
               return (
                 <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
                   {item.content ? (
@@ -447,6 +477,35 @@ export default function Chats() {
                           </Text>
                         </View>
                       ))}
+                    </View>
+                  ) : null}
+
+                  {rateable ? (
+                    <View style={styles.feedbackRow}>
+                      {(['up', 'down'] as const).map((value) => {
+                        const selected = item.feedback === value;
+                        const label = value === 'up' ? 'Resposta boa' : 'Resposta ruim';
+                        const icon = value === 'up' ? 'thumbs-up' : 'thumbs-down';
+
+                        return (
+                          <Pressable
+                            key={value}
+                            testID={`feedback-${value}-${item._id}`}
+                            accessibilityRole="button"
+                            accessibilityLabel={selected ? `${label} (marcada)` : label}
+                            accessibilityState={{ selected }}
+                            hitSlop={8}
+                            style={[styles.feedbackButton, selected && (value === 'up' ? styles.feedbackUp : styles.feedbackDown)]}
+                            onPress={() => handleFeedback(item._id!, value)}
+                          >
+                            <Ionicons
+                              name={(selected ? icon : `${icon}-outline`) as 'thumbs-up'}
+                              size={15}
+                              color={selected ? (value === 'up' ? '#047857' : '#B42318') : '#64748B'}
+                            />
+                          </Pressable>
+                        );
+                      })}
                     </View>
                   ) : null}
                 </View>
@@ -597,6 +656,19 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
+  feedbackRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  feedbackButton: {
+    width: 30,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  feedbackUp: { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' },
+  feedbackDown: { backgroundColor: '#FEF3F2', borderColor: '#F5C2BE' },
   sourcesLabel: { fontSize: 11, fontWeight: '700', color: '#64748B' },
   sourceChip: {
     flexDirection: 'row',
