@@ -16,6 +16,7 @@ import {
   getGoals,
   getStudyStats,
   getUserStats,
+  logoutUser,
   type Achievement,
   type Goal,
 } from '../api/home';
@@ -30,6 +31,7 @@ import {
   normalizeProgress,
   safeNumber,
 } from '../utils/profile';
+import { signOut } from '../utils/session';
 
 type ProfileStats = {
   ignisPoints?: number;
@@ -57,6 +59,7 @@ export default function ProfileScreen() {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [expandedDetails, setExpandedDetails] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -250,6 +253,23 @@ export default function ProfileScreen() {
     );
   }
 
+  const handleLogout = async () => {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+    setErrorMessage('');
+
+    const result = await signOut(logoutUser);
+
+    if (!result.ok) {
+      setErrorMessage(result.message);
+      setLoggingOut(false);
+      return;
+    }
+
+    router.replace('/login');
+  };
+
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -412,6 +432,22 @@ export default function ProfileScreen() {
             </View>
           )}
         </Card>
+
+        <Pressable
+          testID="logout-button"
+          accessibilityRole="button"
+          accessibilityLabel="Sair da conta"
+          style={[styles.logoutButton, loggingOut && styles.logoutButtonDisabled]}
+          onPress={handleLogout}
+          disabled={loggingOut}
+        >
+          {loggingOut ? (
+            <ActivityIndicator size="small" color="#B42318" />
+          ) : (
+            <Ionicons name="log-out-outline" size={18} color="#B42318" />
+          )}
+          <Text style={styles.logoutButtonText}>{loggingOut ? 'Saindo...' : 'Sair da conta'}</Text>
+        </Pressable>
 
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </ScrollView>
@@ -755,6 +791,26 @@ const styles = StyleSheet.create({
   achievementProgress: {
     color: colors.primary,
     fontSize: 11,
+    fontWeight: '700',
+  },
+  logoutButton: {
+    marginTop: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#F5C2BE',
+    backgroundColor: '#FFF5F4',
+    borderRadius: 14,
+    paddingVertical: 13,
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6,
+  },
+  logoutButtonText: {
+    color: '#B42318',
+    fontSize: 15,
     fontWeight: '700',
   },
   errorText: {
