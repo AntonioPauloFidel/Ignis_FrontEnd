@@ -1,4 +1,8 @@
-import { setMessageFeedback } from '../chat';
+import { sendMessageStream, setMessageFeedback } from '../chat';
+
+const mockStreamFetch = jest.fn();
+// No celular o streaming usa o fetch do Expo; o jest-expo roda como celular
+jest.mock('expo/fetch', () => ({ fetch: (...args: unknown[]) => mockStreamFetch(...args) }));
 
 describe('setMessageFeedback', () => {
   const fetchMock = jest.fn();
@@ -25,5 +29,44 @@ describe('setMessageFeedback', () => {
   it('erro do servidor vira exceção com a mensagem', async () => {
     fetchMock.mockResolvedValueOnce(reply(400, { message: 'Só é possível avaliar respostas da IA.' }));
     await expect(setMessageFeedback('c1', 'm1', 'up')).rejects.toThrow('Só é possível avaliar respostas da IA.');
+  });
+});
+
+describe('sendMessageStream (corpo do envio)', () => {
+  const fetchMock = mockStreamFetch;
+
+  const streamOk = () => ({
+    ok: true,
+    body: {
+      getReader: () => {
+        let done = false;
+        return {
+          read: async () => {
+            if (done) return { done: true, value: undefined };
+            done = true;
+            return { done: false, value: new TextEncoder().encode('data: {"type":"delta","content":"oi"}\n\ndata: {"type":"done"}\n\n') };
+          },
+        };
+      },
+    },
+  });
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async () => streamOk());
+  });
+
+  it('envio normal não manda replaceLast', async () => {
+    const pieces: string[] = [];
+    await sendMessageStream('c1', 'pergunta', (p: string) => pieces.push(p));
+
+    expect(pieces).toEqual(['oi']);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ content: 'pergunta' });
+  });
+
+  it('refazer manda replaceLast: true', async () => {
+    await sendMessageStream('c1', 'pergunta', () => undefined, undefined, undefined, true);
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ content: 'pergunta', replaceLast: true });
   });
 });
