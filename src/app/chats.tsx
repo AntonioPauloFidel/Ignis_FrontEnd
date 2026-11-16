@@ -41,6 +41,7 @@ import { StudyMaterialPanel } from '../components/StudyMaterial';
 import { colors } from '../constants/colors';
 import { highlight, searchable, SEARCH_DELAY_MS } from '../utils/chat-search';
 import { canRate, toggleFeedback } from '../utils/feedback';
+import { redoTarget, withReplacedExchange } from '../utils/redo';
 import { acceptNotice, hasAcceptedNotice } from '../utils/privacy-notice';
 
 const NEW_CHAT_TITLE = 'Novo chat';
@@ -77,9 +78,11 @@ export default function Chats() {
   const [files, setFiles] = useState<ChatFile[]>([]);
   const [studyMinutes, setStudyMinutes] = useState(0);
   const [input, setInput] = useState('');
+  const [editing, setEditing] = useState(false); // editando a última pergunta: o envio troca a última troca
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<TextInput>(null);
   const [opening, setOpening] = useState(false);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -161,6 +164,7 @@ export default function Chats() {
   }
 
   function startNewChat() {
+    setEditing(false);
     setChatId(null);
     setTitle(NEW_CHAT_TITLE);
     setMessages([]);
@@ -172,6 +176,7 @@ export default function Chats() {
 
   // Depois de apagar tudo: limpa a tela, mas deixa o menu aberto para mostrar a confirmação
   function handleAllDeleted() {
+    setEditing(false);
     setChats([]);
     setChatId(null);
     setTitle(NEW_CHAT_TITLE);
@@ -185,6 +190,8 @@ export default function Chats() {
   async function openChat(id: string) {
     toggleDrawer(false);
     if (id === chatId) return;
+
+    setEditing(false);
 
     try {
       setOpening(true);
@@ -220,21 +227,61 @@ export default function Chats() {
     return chat._id;
   }
 
-  async function handleSend() {
-    const content = input.trim();
+  function handleSend() {
+    return send(input.trim(), editing, editing);
+  }
+
+  // Regenerar: envia de novo a última pergunta, trocando a última resposta
+  function handleRegenerate() {
+    const target = redoTarget(messages, sending);
+    if (!target) return;
+    return send(messages[target.userIndex].content, true, false);
+  }
+
+  // Editar: leva a última pergunta para o campo; o envio troca a última pergunta e a última resposta
+  function handleEditLast() {
+    const target = redoTarget(messages, sending);
+    if (!target) return;
+    setInput(messages[target.userIndex].content);
+    setEditing(true);
+    setError('');
+    inputRef.current?.focus();
+  }
+
+  function cancelEditing() {
+    setEditing(false);
+    setInput('');
+  }
+
+  /**
+   * Envia a pergunta. Com `replace`, ela e a resposta nova trocam a última pergunta e a última resposta da IA;
+   * se falhar ou parar sem texto, a tela volta ao que estava (o servidor também mantém o par antigo).
+   * `fromEdit`: o texto veio do campo (envio normal ou edição), então volta para lá se o envio falhar; ao
+   * regenerar, o campo não é tocado.
+   */
+  async function send(content: string, replace: boolean, fromEdit: boolean) {
     if (!content || sending) return;
 
+    const before = messages;
     const controller = new AbortController();
     abortRef.current = controller;
 
     setInput('');
+    setEditing(false);
     setError('');
     setSending(true);
-    setMessages((current) => [
-      ...current,
-      { role: 'user', content },
-      { role: 'assistant', content: '' },
-    ]);
+    setMessages((current) =>
+      replace
+        ? withReplacedExchange(current, content)
+        : [...current, { role: 'user', content }, { role: 'assistant', content: '' }],
+    );
+
+    // Volta a tela ao que estava antes do envio (e devolve o texto ao campo, no modo de edição)
+    const restore = () => {
+      setMessages(replace ? before : (current) => current.slice(0, -2));
+      if (fromEdit) setInput(content);
+      if (replace && fromEdit) setEditing(true);
+    };
 
     try {
       const id = await ensureChat();
@@ -254,12 +301,11 @@ export default function Chats() {
           next[next.length - 1] = { ...next[next.length - 1], sources };
           return next;
         });
-      });
+      }, replace);
 
-      // Parou antes de chegar qualquer texto: o back descarta a pergunta, então devolve ao campo
+      // Parou antes de chegar qualquer texto: o back descarta a pergunta (e, ao refazer, mantém o par antigo)
       if (controller.signal.aborted && !received) {
-        setMessages((current) => current.slice(0, -2));
-        setInput(content);
+        restore();
         return;
       }
 
@@ -276,10 +322,13 @@ export default function Chats() {
     } catch (err) {
       handleError(err, 'Não foi possível enviar a mensagem.');
       // tira a resposta vazia; o backend também descarta a pergunta sem resposta
-      setMessages((current) =>
-        current[current.length - 1]?.content === '' ? current.slice(0, -2) : current,
-      );
-      setInput(content);
+      if (replace) restore();
+      else {
+        setMessages((current) =>
+          current[current.length - 1]?.content === '' ? current.slice(0, -2) : current,
+        );
+        setInput(content);
+      }
     } finally {
       abortRef.current = null;
       setSending(false);
@@ -390,6 +439,7 @@ export default function Chats() {
     }
   }
 
+  const redo = redoTarget(messages, sending);
   const translateX = drawer.interpolate({ inputRange: [0, 1], outputRange: [drawerWidth, 0] });
   const overlayOpacity = drawer.interpolate({ inputRange: [0, 1], outputRange: [0, 0.35] });
 
@@ -500,7 +550,21 @@ export default function Chats() {
                 <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
                   {item.content ? (
                     mine ? (
-                      <Text style={styles.myText}>{item.content}</Text>
+                      <>
+                        <Text style={styles.myText}>{item.content}</Text>
+                        {index === redo?.userIndex ? (
+                          <Pressable
+                            testID="edit-last"
+                            style={styles.editButton}
+                            onPress={handleEditLast}
+                            accessibilityRole="button"
+                            accessibilityLabel="Editar a pergunta"
+                            hitSlop={8}
+                          >
+                            <Ionicons name="create-outline" size={15} color="#DBEAFE" />
+                          </Pressable>
+                        ) : null}
+                      </>
                     ) : (
                       <Markdown text={item.content} color={colors.darkBlue} />
                     )
@@ -549,6 +613,19 @@ export default function Chats() {
                           </Pressable>
                         );
                       })}
+
+                      {index === redo?.assistantIndex ? (
+                        <Pressable
+                          testID="regenerate"
+                          style={styles.feedbackButton}
+                          onPress={handleRegenerate}
+                          accessibilityRole="button"
+                          accessibilityLabel="Gerar outra resposta"
+                          hitSlop={8}
+                        >
+                          <Ionicons name="refresh" size={15} color="#64748B" />
+                        </Pressable>
+                      ) : null}
                     </View>
                   ) : null}
                 </View>
@@ -559,6 +636,16 @@ export default function Chats() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
+        {editing ? (
+          <View style={styles.editingBanner}>
+            <Ionicons name="create-outline" size={16} color={colors.primary} />
+            <Text style={styles.editingText}>Editando a última pergunta: a resposta nova substitui a anterior.</Text>
+            <Pressable onPress={cancelEditing} hitSlop={10} accessibilityLabel="Cancelar a edição">
+              <Ionicons name="close" size={18} color="#64748B" />
+            </Pressable>
+          </View>
+        ) : null}
+
         <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Pressable style={styles.attach} onPress={handleAttach} disabled={uploading}>
             {uploading ? (
@@ -568,6 +655,7 @@ export default function Chats() {
             )}
           </Pressable>
           <TextInput
+            ref={inputRef}
             style={styles.input}
             value={input}
             onChangeText={setInput}
@@ -766,6 +854,18 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
+  editButton: { alignSelf: 'flex-end', marginTop: 6, opacity: 0.9 },
+  editingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: colors.softBlue,
+  },
+  editingText: { flex: 1, fontSize: 12, color: colors.darkBlue },
   feedbackRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
   feedbackButton: {
     width: 30,

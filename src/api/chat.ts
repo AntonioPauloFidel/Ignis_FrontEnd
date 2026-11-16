@@ -209,6 +209,7 @@ const isAbort = (error: unknown) => (error as { name?: string })?.name === 'Abor
 /**
  * Envia a mensagem e chama onDelta a cada pedaço da resposta da IA.
  * Se o aluno cancelar pelo `signal`, termina sem erro e o texto parcial já recebido é mantido.
+ * Com `replaceLast`, troca a última pergunta e a última resposta da IA em vez de acrescentar.
  */
 export async function sendMessageStream(
   id: string,
@@ -216,9 +217,10 @@ export async function sendMessageStream(
   onDelta: (piece: string) => void,
   signal?: AbortSignal,
   onSources?: (sources: ChatSource[]) => void,
+  replaceLast = false,
 ): Promise<void> {
   try {
-    await readStream(id, content, onDelta, signal, onSources);
+    await readStream(id, content, onDelta, signal, onSources, replaceLast);
   } catch (error) {
     if (signal?.aborted && isAbort(error)) return;
     throw error;
@@ -231,12 +233,14 @@ async function readStream(
   onDelta: (piece: string) => void,
   signal?: AbortSignal,
   onSources?: (sources: ChatSource[]) => void,
+  replaceLast = false,
 ): Promise<void> {
   const response = await streamingFetch()(`${API_BASE_URL}/chats/${id}/messages`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
+    // replaceLast: a nova pergunta e a nova resposta trocam as últimas (regenerar / editar a pergunta)
+    body: JSON.stringify(replaceLast ? { content, replaceLast: true } : { content }),
     signal,
   });
 
