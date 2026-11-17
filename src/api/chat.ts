@@ -176,12 +176,13 @@ export const deleteMaterial = (chatId: string, materialId: string) =>
 export const deleteChatFile = (chatId: string, fileId: string) =>
   request(`/chats/${chatId}/files/${fileId}`, { method: 'DELETE' });
 
-/** Abre o PDF/DOCX original que o aluno enviou (guardado no servidor). */
-export async function openChatFile(chatId: string, fileId: string): Promise<void> {
+/** Abre o PDF/DOCX original que o aluno enviou (guardado no servidor). Com `page`, o PDF abre nessa página. */
+export async function openChatFile(chatId: string, fileId: string, page?: number): Promise<void> {
   const url = `${API_BASE_URL}/chats/${chatId}/files/${fileId}`;
+  const fragment = page && page > 0 ? `#page=${Math.floor(page)}` : '';
 
   if (Platform.OS !== 'web') {
-    await Linking.openURL(url);
+    await Linking.openURL(`${url}${fragment}`);
     return;
   }
 
@@ -193,7 +194,7 @@ export async function openChatFile(chatId: string, fileId: string): Promise<void
   }
 
   const blobUrl = URL.createObjectURL(await response.blob());
-  window.open(blobUrl, '_blank');
+  window.open(`${blobUrl}${fragment}`, '_blank');
   setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 }
 
