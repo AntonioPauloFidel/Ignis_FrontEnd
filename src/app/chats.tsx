@@ -33,6 +33,7 @@ import {
   type ChatFile,
   type ChatMessage,
   type ChatSearchResult,
+  type ChatSource,
   type ChatSummary,
 } from '../api/chat';
 import { Markdown } from '../components/Markdown';
@@ -42,6 +43,7 @@ import { colors } from '../constants/colors';
 import { highlight, searchable, SEARCH_DELAY_MS } from '../utils/chat-search';
 import { canRate, toggleFeedback } from '../utils/feedback';
 import { redoTarget, withReplacedExchange } from '../utils/redo';
+import { sourceLabel, sourceTarget } from '../utils/source-link';
 import { acceptNotice, hasAcceptedNotice } from '../utils/privacy-notice';
 
 const NEW_CHAT_TITLE = 'Novo chat';
@@ -428,6 +430,23 @@ export default function Chats() {
     }
   }
 
+  async function handleOpenSource(source: ChatSource) {
+    if (!chatId) return;
+
+    const target = sourceTarget(files, source);
+
+    if (!target.ok) {
+      setError(target.message);
+      return;
+    }
+
+    try {
+      await openChatFile(chatId, target.file._id, target.page);
+    } catch (err) {
+      handleError(err, 'Não foi possível abrir o arquivo.');
+    }
+  }
+
   async function handleRemoveFile(file: ChatFile) {
     if (!chatId) return;
 
@@ -576,13 +595,21 @@ export default function Chats() {
                     <View style={styles.sources}>
                       <Text style={styles.sourcesLabel}>Fontes</Text>
                       {item.sources.map((source) => (
-                        <View key={`${source.file}-${source.page ?? 0}`} style={styles.sourceChip}>
-                          <Ionicons name="document-text-outline" size={12} color={colors.primary} />
-                          <Text style={styles.sourceText} numberOfLines={1}>
-                            {source.file}
-                            {source.page ? ` · p. ${source.page}` : ''}
-                          </Text>
-                        </View>
+                        <Pressable
+                          key={`${source.file}-${source.page ?? 0}`}
+                          style={styles.sourceTouch}
+                          onPress={() => handleOpenSource(source)}
+                          accessibilityRole="link"
+                          accessibilityLabel={sourceLabel(source)}
+                        >
+                          <View style={styles.sourceChip}>
+                            <Ionicons name="document-text-outline" size={12} color={colors.primary} />
+                            <Text style={styles.sourceText} numberOfLines={1}>
+                              {source.file}
+                              {source.page ? ` · p. ${source.page}` : ''}
+                            </Text>
+                          </View>
+                        </Pressable>
                       ))}
                     </View>
                   ) : null}
@@ -848,9 +875,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 6,
+    columnGap: 6,
     marginTop: 10,
-    paddingTop: 8,
+    paddingTop: 2,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
@@ -880,6 +907,8 @@ const styles = StyleSheet.create({
   feedbackUp: { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' },
   feedbackDown: { backgroundColor: '#FEF3F2', borderColor: '#F5C2BE' },
   sourcesLabel: { fontSize: 11, fontWeight: '700', color: '#64748B' },
+  // Área de toque mínima de 44 px; o visual continua sendo o chip pequeno
+  sourceTouch: { minHeight: 44, justifyContent: 'center', maxWidth: '100%' },
   sourceChip: {
     flexDirection: 'row',
     alignItems: 'center',
